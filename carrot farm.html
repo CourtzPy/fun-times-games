@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Carrot Farm</title>
+<style>
+  html, body { margin: 0; padding: 0; overflow: hidden; height: 100%; background: #cfe8f0; font-family: 'Trebuchet MS', 'Segoe UI', sans-serif; }
+  #canvas-container { width: 100%; height: 100%; }
+
+  #hud {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    background: rgba(255, 250, 235, 0.92);
+    border: 3px solid #6b4226;
+    border-radius: 14px;
+    padding: 10px 18px;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.15);
+    color: #4a2f18;
+    font-size: 18px;
+    font-weight: bold;
+    user-select: none;
+  }
+  #hud .money { color: #2f7a2f; font-size: 22px; }
+
+  #instructions {
+    position: absolute;
+    bottom: 14px;
+    left: 14px;
+    right: 14px;
+    background: rgba(255, 250, 235, 0.9);
+    border: 2px solid #6b4226;
+    border-radius: 12px;
+    padding: 8px 14px;
+    color: #4a2f18;
+    font-size: 13px;
+    text-align: center;
+    user-select: none;
+  }
+
+  #toast {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    background: rgba(255,255,255,0.95);
+    border: 2px solid #d97706;
+    border-radius: 10px;
+    padding: 8px 14px;
+    color: #92400e;
+    font-weight: bold;
+    font-size: 14px;
+    opacity: 0;
+    transition: opacity 0.4s;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+<div id="canvas-container"></div>
+<div id="hud">
+  🥕 Farm<br>
+  Money: <span class="money" id="money">$20</span><br>
+  <span style="font-size:13px;">Seed cost: $<span id="seedcost">5</span> · Sell price: $<span id="sellprice">10</span></span>
+</div>
+<div id="toast"></div>
+<div id="instructions">Click an empty plot to plant a carrot seed 🌱 · Wait for it to grow 🥕 · Click it to sell 💰</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function() {
+  const SEED_COST = 5;
+  const SELL_PRICE = 10;
+  const GROW_TIME = 5000; // ms
+  const GRID_SIZE = 5;
+  const PLOT_SPACING = 2.2;
+
+  let money = 20;
+  const moneyEl = document.getElementById('money');
+  document.getElementById('seedcost').textContent = SEED_COST;
+  document.getElementById('sellprice').textContent = SELL_PRICE;
+
+  function updateMoney() {
+    moneyEl.textContent = '$' + money;
+  }
+  updateMoney();
+
+  function toast(msg, color) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.borderColor = color || '#d97706';
+    t.style.color = color || '#92400e';
+    t.style.opacity = '1';
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => { t.style.opacity = '0'; }, 1200);
+  }
+
+  // ---- Scene setup ----
+  const container = document.getElementById('canvas-container');
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0xcfe8f0);
+  scene.fog = new THREE.Fog(0xcfe8f0, 20, 45);
+
+  const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
+  camera.position.set(9, 9, 9);
+  camera.lookAt(0, 0, 0);
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.shadowMap.enabled = true;
+  container.appendChild(renderer.domElement);
+
+  // Lighting
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x557733, 0.9);
+  scene.add(hemi);
+  const sun = new THREE.DirectionalLight(0xfff2cc, 0.9);
+  sun.position.set(10, 15, 8);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(1024, 1024);
+  sun.shadow.camera.left = -15;
+  sun.shadow.camera.right = 15;
+  sun.shadow.camera.top = 15;
+  sun.shadow.camera.bottom = -15;
+  scene.add(sun);
+
+  // Ground
+  const groundGeo = new THREE.PlaneGeometry(40, 40);
+  const groundMat = new THREE.MeshLambertMaterial({ color: 0x7cb342 });
+  const ground = new THREE.Mesh(groundGeo, groundMat);
+  ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  // Simple fence around the farm area
+  function makeFencePost(x, z) {
+    const postGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.8, 6);
+    const postMat = new THREE.MeshLambertMaterial({ color: 0x8d6e4b });
+    const post = new THREE.Mesh(postGeo, postMat);
+    post.position.set(x, 0.4, z);
+    post.castShadow = true;
+    scene.add(post);
+  }
+  const fenceExtent = (GRID_SIZE - 1) * PLOT_SPACING / 2 + 1.4;
+  for (let i = -fenceExtent; i <= fenceExtent + 0.01; i += 1.4) {
+    makeFencePost(i, -fenceExtent);
+    makeFencePost(i, fenceExtent);
+    makeFencePost(-fenceExtent, i);
+    makeFencePost(fenceExtent, i);
+  }
+
+  // ---- Plots ----
+  const plots = [];
+  const raycaster = new THREE.Raycaster();
+  const mouse = new THREE.Vector2();
+
+  const soilGeo = new THREE.BoxGeometry(1.7, 0.25, 1.7);
+  const soilMat = new THREE.MeshLambertMaterial({ color: 0x6b4a2b });
+  const soilReadyMat = new THREE.MeshLambertMaterial({ color: 0x8a5a34 });
+
+  function createCarrotGroup() {
+    const group = new THREE.Group();
+
+    // leaves
+    const leafMat = new THREE.MeshLambertMaterial({ color: 0x3f9142 });
+    for (let i = 0; i < 5; i++) {
+      const leafGeo = new THREE.ConeGeometry(0.05, 0.5, 4);
+      const leaf = new THREE.Mesh(leafGeo, leafMat);
+      const angle = (i / 5) * Math.PI * 2;
+      leaf.position.set(Math.cos(angle) * 0.06, 0.35, Math.sin(angle) * 0.06);
+      leaf.rotation.z = Math.cos(angle) * 0.3;
+      leaf.rotation.x = Math.sin(angle) * 0.3;
+      group.add(leaf);
+    }
+
+    // carrot root (hidden mostly underground while growing)
+    const rootMat = new THREE.MeshLambertMaterial({ color: 0xe8791a });
+    const rootGeo = new THREE.ConeGeometry(0.18, 0.5, 8);
+    const root = new THREE.Mesh(rootGeo, rootMat);
+    root.rotation.x = Math.PI; // point down
+    root.position.y = -0.1;
+    root.castShadow = true;
+    group.add(root);
+    group.userData.root = root;
+    group.userData.leaves = group.children.filter(c => c !== root);
+
+    return group;
+  }
+
+  function createPlot(x, z) {
+    const soil = new THREE.Mesh(soilGeo, soilMat);
+    soil.position.set(x, 0.125, z);
+    soil.receiveShadow = true;
+    soil.castShadow = true;
+    scene.add(soil);
+
+    const plot = {
+      x, z,
+      soilMesh: soil,
+      state: 'empty', // empty | growing | ready
+      plantGroup: null,
+      plantedAt: 0
+    };
+    soil.userData.plot = plot;
+    plots.push(plot);
+    return plot;
+  }
+
+  const offset = (GRID_SIZE - 1) * PLOT_SPACING / 2;
+  for (let i = 0; i < GRID_SIZE; i++) {
+    for (let j = 0; j < GRID_SIZE; j++) {
+      createPlot(i * PLOT_SPACING - offset, j * PLOT_SPACING - offset);
+    }
+  }
+
+  // Little scarecrow decoration in the center-ish for flavor
+  (function addScarecrow() {
+    const group = new THREE.Group();
+    const poleMat = new THREE.MeshLambertMaterial({ color: 0x7a5230 });
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2, 6), poleMat);
+    pole.position.y = 1;
+    pole.castShadow = true;
+    group.add(pole);
+    const armMat = new THREE.MeshLambertMaterial({ color: 0x7a5230 });
+    const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.4, 6), armMat);
+    arm.rotation.z = Math.PI / 2;
+    arm.position.y = 1.4;
+    group.add(arm);
+    const headMat = new THREE.MeshLambertMaterial({ color: 0xf4c98a });
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.25, 8, 8), headMat);
+    head.position.y = 2.15;
+    head.castShadow = true;
+    group.add(head);
+    const hatMat = new THREE.MeshLambertMaterial({ color: 0x4a2f18 });
+    const hat = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.3, 8), hatMat);
+    hat.position.y = 2.4;
+    group.add(hat);
+    group.position.set(fenceExtent - 0.9, 0, fenceExtent - 0.9);
+    scene.add(group);
+  })();
+
+  // ---- Interaction ----
+  function onPointerDown(event) {
+    const rect = renderer.domElement.getBoundingClientRect();
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    raycaster.setFromCamera(mouse, camera);
+    const intersects = raycaster.intersectObjects(scene.children, true);
+
+    for (const hit of intersects) {
+      let obj = hit.object;
+      // walk up to find a plot reference
+      while (obj && !obj.userData.plot && obj.parent) {
+        obj = obj.parent;
+      }
+      let plot = null;
+      if (obj && obj.userData.plot) {
+        plot = obj.userData.plot;
+      } else {
+        // check plant group hit directly
+        let o = hit.object;
+        while (o) {
+          if (o.userData.isPlant) { plot = o.userData.plot; break; }
+          o = o.parent;
+        }
+      }
+      if (plot) {
+        handlePlotClick(plot);
+        break;
+      }
+    }
+  }
+
+  function handlePlotClick(plot) {
+    if (plot.state === 'empty') {
+      if (money < SEED_COST) {
+        toast("Not enough money for a seed! 🌱", "#b91c1c");
+        return;
+      }
+      money -= SEED_COST;
+      updateMoney();
+      plantCarrot(plot);
+      toast("Planted a carrot seed 🌱");
+    } else if (plot.state === 'growing') {
+      toast("Still growing... ⏳", "#7c6f57");
+    } else if (plot.state === 'ready') {
+      sellCarrot(plot);
+    }
+  }
+
+  function plantCarrot(plot) {
+    plot.state = 'growing';
+    plot.plantedAt = performance.now();
+    plot.soilMesh.material = soilReadyMat;
+
+    const carrot = createCarrotGroup();
+    carrot.position.set(plot.x, 0.25, plot.z);
+    carrot.scale.set(0.15, 0.15, 0.15);
+    carrot.userData.isPlant = true;
+    carrot.userData.plot = plot;
+    scene.add(carrot);
+    plot.plantGroup = carrot;
+  }
+
+  function sellCarrot(plot) {
+    money += SELL_PRICE;
+    updateMoney();
+    toast("Sold a carrot! +$" + SELL_PRICE, "#2f7a2f");
+
+    scene.remove(plot.plantGroup);
+    plot.plantGroup = null;
+    plot.state = 'empty';
+    plot.soilMesh.material = soilMat;
+  }
+
+  renderer.domElement.addEventListener('pointerdown', onPointerDown);
+
+  // ---- Camera orbit controls (simple drag-to-rotate) ----
+  let isDragging = false;
+  let prevX = 0, prevY = 0;
+  let camAngle = Math.atan2(camera.position.z, camera.position.x);
+  let camElevation = 0.85; // radians-ish factor
+  let camDist = Math.sqrt(camera.position.x ** 2 + camera.position.z ** 2);
+  let camHeight = camera.position.y;
+
+  function updateCameraPosition() {
+    camera.position.x = Math.cos(camAngle) * camDist;
+    camera.position.z = Math.sin(camAngle) * camDist;
+    camera.position.y = camHeight;
+    camera.lookAt(0, 0, 0);
+  }
+
+  renderer.domElement.addEventListener('pointerdown', (e) => {
+    isDragging = true;
+    prevX = e.clientX;
+    prevY = e.clientY;
+  });
+  window.addEventListener('pointerup', () => { isDragging = false; });
+  window.addEventListener('pointermove', (e) => {
+    if (!isDragging) return;
+    const dx = e.clientX - prevX;
+    const dy = e.clientY - prevY;
+    prevX = e.clientX;
+    prevY = e.clientY;
+    camAngle -= dx * 0.006;
+    camHeight = Math.max(3, Math.min(16, camHeight + dy * 0.03));
+    updateCameraPosition();
+  });
+
+  // zoom with wheel
+  window.addEventListener('wheel', (e) => {
+    camDist = Math.max(6, Math.min(22, camDist + e.deltaY * 0.01));
+    updateCameraPosition();
+  }, { passive: true });
+
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+
+  // ---- Animation loop ----
+  function animate() {
+    requestAnimationFrame(animate);
+    const now = performance.now();
+
+    for (const plot of plots) {
+      if (plot.state === 'growing' && plot.plantGroup) {
+        const elapsed = now - plot.plantedAt;
+        const t = Math.min(1, elapsed / GROW_TIME);
+        const scale = 0.15 + 0.85 * t;
+        plot.plantGroup.scale.set(scale, scale, scale);
+        plot.plantGroup.position.y = 0.25 + t * 0.15;
+        // gentle sway
+        plot.plantGroup.rotation.y = Math.sin(now * 0.001 + plot.x) * 0.1;
+
+        if (t >= 1) {
+          plot.state = 'ready';
+          plot.plantGroup.userData.readyBounceStart = now;
+        }
+      } else if (plot.state === 'ready' && plot.plantGroup) {
+        const bounceElapsed = now - (plot.plantGroup.userData.readyBounceStart || now);
+        const bounce = Math.sin(bounceElapsed * 0.004) * 0.05;
+        plot.plantGroup.position.y = 0.4 + bounce;
+        plot.plantGroup.rotation.y = Math.sin(now * 0.0015 + plot.x) * 0.15;
+      }
+    }
+
+    renderer.render(scene, camera);
+  }
+
+  updateCameraPosition();
+  animate();
+})();
+</script>
+</body>
+</html>
