@@ -13,5 +13,10 @@
     "title": "Carrot Farm",
     "path": "carrot%20farm.html",
     "number": "03"
+  },
+  {
+    "title": "Monster Keep",
+    "path": "monster-keep.html",
+    "number": "04"
   }
 ]
