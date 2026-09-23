@@ -1,0 +1,1292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>Witchwood</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.min.js"></script>
+<style>
+  :root{
+    --moss:#1b2a1c;
+    --panel:#1a1612;
+    --line:#4a3c2e;
+    --bone:#efe6d6;
+    --bone-dim:#b7aa94;
+    --witch:#c9a24a;
+    --blood:#c45c4a;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#070806; touch-action:none;}
+  body{font-family:'Inter',system-ui,sans-serif; color:var(--bone); user-select:none;}
+  #view{display:block; width:100%; height:100%; touch-action:none;}
+  #vignette{
+    pointer-events:none; position:fixed; inset:0; z-index:3;
+    background:radial-gradient(ellipse at 50% 40%, transparent 58%, rgba(0,0,0,0.32) 100%);
+  }
+  #hud{
+    position:fixed; inset:0; z-index:5; pointer-events:none;
+    display:flex; flex-direction:column; justify-content:space-between;
+    padding:16px 18px 20px;
+  }
+  .top{display:flex; justify-content:space-between; align-items:flex-start; gap:12px;}
+  .game-title{font-family:'Cinzel',serif; font-weight:800; letter-spacing:0.6px; font-size:18px; color:var(--witch); text-shadow:0 0 16px rgba(201,162,74,0.35); margin:0;}
+  .hint{font-size:12px; color:var(--bone-dim); max-width:280px; text-align:right; line-height:1.45;}
+  #caption{
+    align-self:center; max-width:640px; text-align:center;
+    background:rgba(10,8,6,0.72); border:1px solid rgba(74,60,46,0.8);
+    padding:10px 16px; border-radius:12px; font-size:14px; line-height:1.5;
+    opacity:0; transition:opacity 0.35s;
+  }
+  #caption.show{opacity:1;}
+  #spell{
+    position:fixed; inset:0; z-index:12; display:none; align-items:center; justify-content:center;
+    background:rgba(20,0,28,0.55); pointer-events:none;
+  }
+  #spell.show{display:flex;}
+  #spell b{
+    font-family:'Cinzel',serif; font-size:clamp(28px,6vw,64px); color:#f3d27a;
+    text-shadow:0 0 24px #a855f7, 0 8px 0 #3b0764; letter-spacing:1px;
+    animation:shake 0.18s linear infinite;
+  }
+  @keyframes shake{
+    0%{transform:translate(-4px,2px) rotate(-1deg);}
+    50%{transform:translate(5px,-3px) rotate(1deg);}
+    100%{transform:translate(-3px,1px) rotate(-0.5deg);}
+  }
+  #lookLayer{
+    position:fixed; inset:0; z-index:4; touch-action:none;
+  }
+  #movePad{
+    pointer-events:auto; position:fixed; left:0; bottom:0; width:46%; height:42%; z-index:6;
+    touch-action:none;
+  }
+  #joystick{
+    pointer-events:none; position:absolute; left:18px; bottom:18px; width:112px; height:112px;
+    border-radius:50%; background:rgba(255,255,255,0.12); border:2px solid rgba(255,255,255,0.38);
+  }
+  #joystickKnob{
+    position:absolute; width:44px; height:44px; border-radius:50%; left:34px; top:34px;
+    background:rgba(239,230,214,0.78);
+  }
+  #jumpBtn{
+    pointer-events:auto; position:fixed; right:18px; bottom:22px; z-index:8;
+    width:78px; height:78px; border-radius:50%; border:2px solid rgba(201,162,74,0.7);
+    background:rgba(70,48,24,0.82); color:var(--bone); font-weight:800; font-size:12px;
+    font-family:'Inter',sans-serif; letter-spacing:0.4px; touch-action:none;
+  }
+  .overlay{position:fixed; inset:0; background:rgba(6,5,4,0.88); display:none; align-items:center; justify-content:center; z-index:20; padding:20px;}
+  .overlay.show{display:flex;}
+  .card{
+    background:linear-gradient(180deg,#241c14,#14110e); border:2px solid var(--line);
+    border-radius:16px; padding:28px 24px; max-width:420px; width:100%; text-align:center;
+  }
+  .card h1,.card h2{font-family:'Cinzel',serif; color:var(--witch); margin:0 0 10px;}
+  .card p{color:var(--bone-dim); font-size:14px; line-height:1.55; margin:0 0 18px;}
+  .btn{
+    font-family:'Inter',sans-serif; font-weight:700; font-size:14px; border:none; border-radius:8px;
+    padding:12px 18px; cursor:pointer; color:#1a140c; background:linear-gradient(180deg,#e2c37a,#b8893a);
+    box-shadow:0 3px 0 #6b4a1c; width:100%;
+  }
+  .btn:active{transform:scale(0.98);}
+  #fade{position:fixed; inset:0; background:#000; z-index:15; opacity:0; pointer-events:none; transition:opacity 0.55s;}
+  #fade.on{opacity:1;}
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+<div id="vignette"></div>
+<div id="lookLayer"></div>
+<div id="hud">
+  <div class="top">
+    <p class="game-title">WITCHWOOD</p>
+    <div class="hint" id="hintEl">Left stick to move · two fingers to look · JUMP or Space to jump</div>
+  </div>
+  <div id="caption">Left stick to move. Two fingers to look around.</div>
+</div>
+<div id="movePad">
+  <div id="joystick"><div id="joystickKnob"></div></div>
+</div>
+<button id="jumpBtn" type="button">JUMP</button>
+<div id="spell"><b>BIPITY BOPPITY BOO!</b></div>
+<div id="fade"></div>
+
+<div class="overlay show" id="startOverlay">
+  <div class="card">
+    <h1>Witchwood</h1>
+    <p>A homeless girl finds an abandoned house in the forest and wants to live there. Walk the path. Step inside. It was never empty.</p>
+    <button class="btn" id="startBtn" type="button">Walk the Path</button>
+  </div>
+</div>
+<div class="overlay" id="winOverlay">
+  <div class="card">
+    <h2>The Spell Broke</h2>
+    <p id="winText">You outran the witch's course. The house is gone. The woods are only woods again.</p>
+    <button class="btn" id="againBtn" type="button">Walk the Path Again</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  if (!window.THREE){
+    document.getElementById("caption").textContent = "Couldn't load 3D engine. Check your connection and refresh.";
+    document.getElementById("caption").classList.add("show");
+    return;
+  }
+
+  const canvas = document.getElementById("view");
+  const captionEl = document.getElementById("caption");
+  const hintEl = document.getElementById("hintEl");
+  const spellEl = document.getElementById("spell");
+  const fadeEl = document.getElementById("fade");
+  const joyEl = document.getElementById("joystick");
+  const knobEl = document.getElementById("joystickKnob");
+  const movePad = document.getElementById("movePad");
+  const lookLayer = document.getElementById("lookLayer");
+  let grassUX = {
+    uTime: {value:0},
+    uPlayer: {value: new THREE.Vector3()},
+    swooshWait: 0,
+    noiseBuf: null
+  };
+
+  const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+  renderer.setPixelRatio(Math.min(2, window.devicePixelRatio||1));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(60, 1, 0.08, 180);
+  const clock = new THREE.Clock();
+
+  const forestGroup = new THREE.Group();
+  const houseIntGroup = new THREE.Group();
+  const obbyGroup = new THREE.Group();
+  scene.add(forestGroup, houseIntGroup, obbyGroup);
+  houseIntGroup.visible = false;
+  obbyGroup.visible = false;
+
+  let mode = "title";
+  let solids = [];
+  let moving = [];
+  let checkpoints = [];
+  let spawn = new THREE.Vector3(0,0,22);
+  let camYaw = 0;
+  let camPitch = 0.18;
+  let onGround = false;
+  let coyote = 0;
+  let jumpBuf = 0;
+  let walkPhase = 0;
+  let captionTimer = 0;
+  let story = {sawWitch:false, entered:false, scareReady:0, scareDone:false, obbyGrace:0};
+  let cutT = 0;
+  let shake = 0;
+  let keys = {};
+  let joy = {x:0, y:0, active:false};
+  let player, girl, witchPeek, witchHouse, witchFly;
+  let doorTrigger = null;
+  let finishBox = null;
+  const vel = new THREE.Vector3();
+  const PLAYER_R = 0.32;
+  const PLAYER_H = 1.62;
+  const audio = {ctx:null};
+
+  function resize(){
+    const w = window.innerWidth, h = window.innerHeight;
+    renderer.setSize(w,h,false);
+    camera.aspect = w/Math.max(1,h);
+    camera.updateProjectionMatrix();
+  }
+  window.addEventListener("resize", resize);
+  resize();
+
+  function caption(text, hold){
+    captionEl.textContent = text;
+    captionEl.classList.add("show");
+    captionTimer = hold==null ? 4.2 : hold;
+  }
+  function fade(on){ fadeEl.classList.toggle("on", !!on); }
+
+  function blip(freq, dur, type, gain){
+    try{
+      if (!audio.ctx) audio.ctx = new (window.AudioContext||window.webkitAudioContext)();
+      const ctx = audio.ctx;
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = type||"sine";
+      o.frequency.value = freq;
+      g.gain.value = gain||0.05;
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+dur);
+      o.connect(g); g.connect(ctx.destination);
+      o.start(); o.stop(ctx.currentTime+dur);
+    }catch(e){}
+  }
+
+  function mat(color, extra){
+    return new THREE.MeshStandardMaterial(Object.assign({
+      color, roughness:0.82, metalness:0.04
+    }, extra||{}));
+  }
+
+  function addSolid(group, x,y,z,w,h,d, material, opts){
+    opts = opts||{};
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), material);
+    mesh.position.set(x, y+h/2, z);
+    mesh.castShadow = opts.cast!==false;
+    mesh.receiveShadow = !opts.hidden;
+    mesh.visible = !opts.hidden;
+    group.add(mesh);
+    const box = {
+      minx:x-w/2, maxx:x+w/2, miny:y, maxy:y+h, minz:z-d/2, maxz:z+d/2,
+      mesh, moving:!!opts.moving, ox:x, oz:z, amp:opts.amp||0, axis:opts.axis||"x",
+      speed:opts.speed||1, phase:opts.phase||0, vx:0, vz:0
+    };
+    solids.push(box);
+    if (box.moving) moving.push(box);
+    if (opts.checkpoint) checkpoints.push({x, y:y+h, z});
+    if (opts.finish) finishBox = box;
+    return box;
+  }
+
+  function makeGirl(){
+    const g = new THREE.Group();
+    const body = new THREE.Group();
+    g.add(body);
+    const skin = mat(0xc4a07a, {roughness:0.55});
+    const cloth = mat(0x6a5340, {roughness:0.9});
+    const hair = mat(0x2a1c14, {roughness:0.7});
+    const boot = mat(0x3a2a22);
+
+    const hips = new THREE.Mesh(new THREE.BoxGeometry(0.28,0.12,0.16), cloth);
+    hips.position.y = 0.78; body.add(hips);
+
+    const leftLeg = new THREE.Group(); leftLeg.position.set(-0.08,0.78,0);
+    const ll = new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.06,0.5,8), cloth); ll.position.y = -0.25;
+    const lb = new THREE.Mesh(new THREE.BoxGeometry(0.1,0.08,0.16), boot); lb.position.set(0,-0.52,0.02);
+    leftLeg.add(ll,lb); body.add(leftLeg);
+
+    const rightLeg = new THREE.Group(); rightLeg.position.set(0.08,0.78,0);
+    const rl = new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.06,0.5,8), cloth); rl.position.y = -0.25;
+    const rb = new THREE.Mesh(new THREE.BoxGeometry(0.1,0.08,0.16), boot); rb.position.set(0,-0.52,0.02);
+    rightLeg.add(rl,rb); body.add(rightLeg);
+
+    const skirt = new THREE.Mesh(new THREE.CylinderGeometry(0.28,0.16,0.42,10), cloth);
+    skirt.position.y = 0.98; body.add(skirt);
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.3,0.34,0.18), cloth);
+    torso.position.y = 1.22; body.add(torso);
+    const patch = new THREE.Mesh(new THREE.BoxGeometry(0.12,0.1,0.02), mat(0x4a3a2c));
+    patch.position.set(0.08,1.18,0.1); body.add(patch);
+
+    const leftArm = new THREE.Group(); leftArm.position.set(-0.2,1.34,0);
+    const la = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.045,0.42,8), skin); la.position.y = -0.18;
+    leftArm.add(la); body.add(leftArm);
+    const rightArm = new THREE.Group(); rightArm.position.set(0.2,1.34,0);
+    const ra = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.045,0.42,8), skin); ra.position.y = -0.18;
+    rightArm.add(ra); body.add(rightArm);
+
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.125,16,12), skin);
+    head.position.y = 1.52; body.add(head);
+    const hairCap = new THREE.Mesh(new THREE.SphereGeometry(0.13,12,10), hair);
+    hairCap.position.set(0,1.58,-0.04); hairCap.scale.set(1.02,0.78,1.15); body.add(hairCap);
+    const hairBack = new THREE.Mesh(new THREE.SphereGeometry(0.13,10,8), hair);
+    hairBack.position.set(0.02,1.36,-0.1); hairBack.scale.set(0.8,1.15,0.65); body.add(hairBack);
+    const bang = new THREE.Mesh(new THREE.BoxGeometry(0.16,0.04,0.04), hair);
+    bang.position.set(-0.03,1.6,0.08); body.add(bang);
+    const eye = mat(0x1a1210, {roughness:0.4});
+    const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.018,8,8), eye);
+    const eyeR = eyeL.clone();
+    eyeL.position.set(-0.045,1.54,0.11); eyeR.position.set(0.045,1.54,0.11);
+    body.add(eyeL, eyeR);
+    const sack = new THREE.Mesh(new THREE.SphereGeometry(0.12,8,6), mat(0x5a4634));
+    sack.position.set(-0.16,1.18,-0.14); body.add(sack);
+
+    g.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.receiveShadow=true; }});
+    return {group:g, body, leftLeg, rightLeg, leftArm, rightArm};
+  }
+
+  function makeWitch(scale){
+    const g = new THREE.Group();
+    const skin = mat(0x6f8a58, {roughness:0.6});
+    const robe = mat(0x140c14, {roughness:0.88});
+    const hat = mat(0x0b070b);
+    const robeMesh = new THREE.Mesh(new THREE.ConeGeometry(0.55,1.7,10), robe);
+    robeMesh.position.y = 0.9; g.add(robeMesh);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.16,12,10), skin);
+    head.position.y = 1.62; g.add(head);
+    const nose = new THREE.Mesh(new THREE.ConeGeometry(0.035,0.22,6), skin);
+    nose.rotation.x = Math.PI/2; nose.position.set(0,1.6,0.18); g.add(nose);
+    const hatBrim = new THREE.Mesh(new THREE.CylinderGeometry(0.34,0.34,0.04,12), hat);
+    hatBrim.position.y = 1.76; g.add(hatBrim);
+    const hatCone = new THREE.Mesh(new THREE.ConeGeometry(0.16,0.7,8), hat);
+    hatCone.position.set(0.04,2.12,0); hatCone.rotation.z = -0.18; g.add(hatCone);
+    const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.03,8,8), mat(0x7c3aed,{emissive:0x7c3aed,emissiveIntensity:1.4,roughness:0.3}));
+    const eyeR = eyeL.clone();
+    eyeL.position.set(-0.05,1.64,0.14); eyeR.position.set(0.05,1.64,0.14);
+    g.add(eyeL, eyeR);
+    g.traverse(o=>{ if(o.isMesh){ o.castShadow=true; }});
+    g.scale.setScalar(scale||1);
+    return g;
+  }
+
+  function makeTree(rng){
+    const g = new THREE.Group();
+    const bark = mat(0x4a3424, {roughness:0.95});
+    const leaf = mat(rng()>0.5?0x4a7a40:0x3f6a38, {roughness:0.86});
+    const h = 2.1 + rng()*1.6;
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.14+rng()*0.08, 0.22+rng()*0.1, h, 7), bark);
+    trunk.position.y = h/2; trunk.castShadow = true; trunk.receiveShadow = true;
+    g.add(trunk);
+    const canopy = new THREE.Mesh(new THREE.IcosahedronGeometry(1.05+rng()*0.45, 0), leaf);
+    canopy.position.y = h + 0.35; canopy.scale.set(1,0.8+rng()*0.25,1);
+    canopy.castShadow = true; g.add(canopy);
+    const canopy2 = new THREE.Mesh(new THREE.IcosahedronGeometry(0.7+rng()*0.3, 0), leaf);
+    canopy2.position.set(0.35, h+0.1, -0.2); g.add(canopy2);
+    return g;
+  }
+
+  function mulberry(seed){
+    return function(){
+      let t = seed += 0x6D2B79F5;
+      t = Math.imul(t ^ t>>>15, t|1);
+      t ^= t + Math.imul(t ^ t>>>7, t|61);
+      return ((t ^ t>>>14)>>>0)/4294967296;
+    };
+  }
+
+  function ensureAudio(){
+    try{
+      if (!audio.ctx) audio.ctx = new (window.AudioContext||window.webkitAudioContext)();
+      if (audio.ctx.state==="suspended") audio.ctx.resume();
+      if (!grassUX.noiseBuf && audio.ctx){
+        const len = Math.floor(audio.ctx.sampleRate * 0.22);
+        const buf = audio.ctx.createBuffer(1, len, audio.ctx.sampleRate);
+        const data = buf.getChannelData(0);
+        let v = 0;
+        for (let i=0;i<len;i++){
+          v = v*0.96 + (Math.random()*2-1)*0.18;
+          const t = i/len;
+          const env = Math.sin(Math.PI * t);
+          data[i] = v * env;
+        }
+        grassUX.noiseBuf = buf;
+      }
+    }catch(err){}
+    return audio.ctx;
+  }
+
+  function playGrassSwoosh(intensity){
+    const ctx = ensureAudio();
+    if (!ctx || !grassUX.noiseBuf) return;
+    try{
+      const src = ctx.createBufferSource();
+      src.buffer = grassUX.noiseBuf;
+      src.playbackRate.value = 0.85 + Math.random()*0.55 + intensity*0.2;
+      const filter = ctx.createBiquadFilter();
+      filter.type = "bandpass";
+      filter.frequency.value = 1400 + Math.random()*1600;
+      filter.Q.value = 0.55;
+      const gain = ctx.createGain();
+      const amp = 0.045 + intensity*0.09;
+      gain.gain.setValueAtTime(amp, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+0.18);
+      src.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+      src.start();
+    }catch(err){}
+  }
+
+  function makeGroundTexture(){
+    const c = document.createElement("canvas");
+    c.width = c.height = 512;
+    const g = c.getContext("2d");
+    g.fillStyle = "#4e5d36";
+    g.fillRect(0,0,512,512);
+    for (let i=0;i<9000;i++){
+      const x=Math.random()*512, y=Math.random()*512;
+      const s=0.8+Math.random()*3.2;
+      g.fillStyle = "rgba("+(55+Math.random()*70)+","+(90+Math.random()*80)+","+(28+Math.random()*40)+","+(0.12+Math.random()*0.45)+")";
+      g.fillRect(x,y,s,s*(1.4+Math.random()*2));
+    }
+    for (let i=0;i<220;i++){
+      g.fillStyle = "rgba("+(70+Math.random()*50)+","+(55+Math.random()*30)+","+(28+Math.random()*20)+","+(0.08+Math.random()*0.2)+")";
+      g.beginPath();
+      g.arc(Math.random()*512, Math.random()*512, 10+Math.random()*32, 0, Math.PI*2);
+      g.fill();
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(18,18);
+    tex.anisotropy = 4;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
+
+  function makeGrass(rng){
+    const w=0.045, h=0.5;
+    const blade = new THREE.BufferGeometry();
+    const positions = new Float32Array([
+      -w,0,0,  w,0,0,  w,h,0,  -w,h,0,
+      0,0,-w,  0,0,w,  0,h,w,  0,h,-w
+    ]);
+    const normals = new Float32Array([
+      0,0,1, 0,0,1, 0,0,1, 0,0,1,
+      1,0,0, 1,0,0, 1,0,0, 1,0,0
+    ]);
+    const uvs = new Float32Array([
+      0,0, 1,0, 1,1, 0,1,
+      0,0, 1,0, 1,1, 0,1
+    ]);
+    blade.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    blade.setAttribute("normal", new THREE.BufferAttribute(normals, 3));
+    blade.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
+    blade.setIndex([0,1,2, 0,2,3, 4,5,6, 4,6,7]);
+    const grassMat = new THREE.MeshStandardMaterial({
+      color: 0x7ea34e,
+      roughness: 0.88,
+      metalness: 0,
+      side: THREE.DoubleSide
+    });
+    grassMat.onBeforeCompile = (shader)=>{
+      shader.uniforms.uTime = grassUX.uTime;
+      shader.uniforms.uPlayer = grassUX.uPlayer;
+      shader.vertexShader = "uniform float uTime;\nuniform vec3 uPlayer;\n" + shader.vertexShader;
+      shader.vertexShader = shader.vertexShader.replace(
+        "#include <begin_vertex>",
+        `#include <begin_vertex>
+        vec4 iWorld = instanceMatrix * vec4(transformed, 1.0);
+        float bladeH = max(transformed.y, 0.0);
+        transformed.x += sin(uTime*1.8 + iWorld.x*0.85 + iWorld.z*0.55) * 0.14 * bladeH;
+        transformed.z += cos(uTime*1.35 + iWorld.x*0.4) * 0.07 * bladeH;
+        vec2 toP = iWorld.xz - uPlayer.xz;
+        float pd = length(toP);
+        float infl = smoothstep(1.45, 0.18, pd);
+        if (pd > 0.001) {
+          vec2 nrm = toP / pd;
+          transformed.x += nrm.x * infl * bladeH * 0.9;
+          transformed.z += nrm.y * infl * bladeH * 0.9;
+          transformed.y -= infl * bladeH * 0.38;
+        }`
+      );
+    };
+    grassMat.customProgramCacheKey = ()=>"witch-grass";
+    const COUNT = 3800;
+    const mesh = new THREE.InstancedMesh(blade, grassMat, COUNT);
+    mesh.frustumCulled = false;
+    mesh.receiveShadow = true;
+    const dummy = new THREE.Object3D();
+    const color = new THREE.Color();
+    let n = 0;
+    for (let i=0;i<9000 && n<COUNT;i++){
+      const x = (rng()-0.5)*78;
+      const z = (rng()-0.5)*78;
+      if (Math.hypot(x, z+22) < 6.2) continue;
+      if (Math.abs(x)<0.85 && z<20 && z>-18.5) continue;
+      dummy.position.set(x, 0, z);
+      dummy.rotation.y = rng()*Math.PI*2;
+      dummy.rotation.z = (rng()-0.5)*0.12;
+      dummy.scale.set(0.75+rng()*0.7, 0.55+rng()*1.05, 1);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(n, dummy.matrix);
+      color.setHSL(0.27+rng()*0.07, 0.52+rng()*0.28, 0.22+rng()*0.14);
+      mesh.setColorAt(n, color);
+      n++;
+    }
+    mesh.count = n;
+    mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    forestGroup.add(mesh);
+  }
+
+  function updateGrass(dt){
+    grassUX.uTime.value = clock.elapsedTime;
+    grassUX.uPlayer.value.copy(player.position);
+    if (mode!=="forest" || !onGround) return;
+    const spd = Math.hypot(vel.x, vel.z);
+    if (spd < 1.05) return;
+    const onPath = Math.abs(player.position.x)<1.1 && player.position.z<20 && player.position.z>-18.5;
+    grassUX.swooshWait -= dt;
+    if (grassUX.swooshWait<=0){
+      grassUX.swooshWait = onPath ? 0.16+Math.random()*0.08 : 0.07+Math.random()*0.06;
+      playGrassSwoosh(Math.min(1, spd/6.5) * (onPath ? 0.32 : 1));
+    }
+  }
+
+  function buildForest(){
+    const rng = mulberry(42);
+    scene.background = new THREE.Color(0x9bb3c2);
+    scene.fog = new THREE.Fog(0x9bb3c2, 18, 62);
+
+    const hemi = new THREE.HemisphereLight(0xd7e8ff, 0x4a4a32, 1.6);
+    hemi.name = "envLight"; forestGroup.add(hemi);
+    const sun = new THREE.DirectionalLight(0xffe8c4, 4.2);
+    sun.position.set(18, 28, 12);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048,2048);
+    sun.shadow.camera.near = 2;
+    sun.shadow.camera.far = 80;
+    sun.shadow.camera.left = -30;
+    sun.shadow.camera.right = 30;
+    sun.shadow.camera.top = 30;
+    sun.shadow.camera.bottom = -30;
+    forestGroup.add(sun);
+    forestGroup.add(new THREE.AmbientLight(0xb7c4a8, 0.85));
+
+    const groundMat = new THREE.MeshStandardMaterial({
+      map: makeGroundTexture(),
+      roughness: 0.96,
+      metalness: 0.02,
+      color: 0xb7c4a0
+    });
+    groundMat.polygonOffset = true;
+    groundMat.polygonOffsetFactor = 1;
+    groundMat.polygonOffsetUnits = 1;
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(140, 140, 1, 1), groundMat);
+    ground.rotation.x = -Math.PI/2;
+    ground.position.y = 0;
+    ground.receiveShadow = true;
+    forestGroup.add(ground);
+    addSolid(forestGroup, 0,-1,0, 140,1,140, mat(0x3f4f30), {cast:false, hidden:true});
+    makeGrass(rng);
+
+    for (let i=0;i<16;i++){
+      const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(0.28+rng()*0.4, 0), mat(0x6a6860,{roughness:0.92}));
+      const a = rng()*Math.PI*2, r = 4+rng()*24;
+      rock.position.set(Math.cos(a)*r, 0.18, Math.sin(a)*r);
+      rock.rotation.set(rng(), rng(), rng());
+      rock.castShadow = true; forestGroup.add(rock);
+    }
+
+    const pathMat = mat(0x6b5a40,{roughness:0.96});
+    for (let i=0;i<14;i++){
+      const slab = new THREE.Mesh(new THREE.BoxGeometry(1.6,0.05,1.4), pathMat);
+      slab.position.set((rng()-0.5)*0.35, 0.03, 18 - i*2.7);
+      slab.rotation.y = (rng()-0.5)*0.2;
+      slab.receiveShadow = true;
+      forestGroup.add(slab);
+    }
+
+    for (let i=0;i<55;i++){
+      const t = makeTree(rng);
+      let x=0,z=0, ok=false, tries=0;
+      while(!ok && tries++<40){
+        x = (rng()-0.5)*56;
+        z = (rng()-0.5)*56;
+        const nearPath = Math.abs(x)<3.4 && z<25 && z>-19;
+        const nearSpawn = Math.hypot(x, z-22)<12;
+        const nearHouse = Math.hypot(x, z+22)<7;
+        const nearWitch = Math.hypot(x+6.4, z+9.2)<3;
+        const behindCam = z>18;
+        ok = !nearPath && !nearSpawn && !nearHouse && !nearWitch && !behindCam;
+      }
+      if (!ok) continue;
+      t.position.set(x,0,z);
+      t.rotation.y = rng()*6;
+      forestGroup.add(t);
+    }
+
+    const watchTree = makeTree(()=>0.4);
+    watchTree.position.set(-6.4,0,-9.2);
+    forestGroup.add(watchTree);
+    witchPeek = makeWitch(0.92);
+    witchPeek.position.set(-7.35,0,-9.55);
+    witchPeek.rotation.y = 0.6;
+    forestGroup.add(witchPeek);
+
+    buildHouseExterior();
+  }
+
+  function buildHouseExterior(){
+    const wood = mat(0x5a4634,{roughness:0.9});
+    const dark = mat(0x2c221c,{roughness:0.88});
+    const roof = mat(0x3a2a24,{roughness:0.86});
+    const baseX=0, baseZ=-22;
+    addSolid(forestGroup, baseX,0,baseZ, 7.2, 0.35, 8.2, dark);
+    addSolid(forestGroup, baseX-3.45,0.35,baseZ, 0.4, 3.4, 8.2, wood);
+    addSolid(forestGroup, baseX+3.45,0.35,baseZ, 0.4, 3.4, 8.2, wood);
+    addSolid(forestGroup, baseX,0.35,baseZ-3.95, 7.2, 3.4, 0.4, wood);
+    addSolid(forestGroup, baseX-2.15,0.35,baseZ+3.95, 2.9, 3.4, 0.4, wood);
+    addSolid(forestGroup, baseX+2.15,0.35,baseZ+3.95, 2.9, 3.4, 0.4, wood);
+    addSolid(forestGroup, baseX,2.55,baseZ+3.95, 1.5, 1.2, 0.4, wood);
+
+    const roofMesh = new THREE.Mesh(new THREE.ConeGeometry(6.1, 2.6, 4), roof);
+    roofMesh.position.set(baseX, 5.1, baseZ);
+    roofMesh.rotation.y = Math.PI/4;
+    roofMesh.castShadow = true;
+    forestGroup.add(roofMesh);
+    const chim = new THREE.Mesh(new THREE.BoxGeometry(0.7,1.4,0.7), mat(0x4a4038));
+    chim.position.set(baseX+2.1, 5.3, baseZ-1.4);
+    chim.castShadow = true; forestGroup.add(chim);
+
+    const winMat = mat(0x0b1210,{roughness:0.2, metalness:0.1, emissive:0x1a2418, emissiveIntensity:0.15});
+    [[-2.1,1.7,-18.05],[2.1,1.7,-18.05],[-2.4,1.7,-25.9],[2.4,1.7,-25.9]].forEach(p=>{
+      const w = new THREE.Mesh(new THREE.BoxGeometry(0.9,1.1,0.08), winMat);
+      w.position.set(p[0],p[1],p[2]); forestGroup.add(w);
+    });
+
+    const porch = addSolid(forestGroup, 0,0,-17.2, 3.2, 0.22, 2.2, mat(0x4a3a2c));
+    doorTrigger = {x:0, z:-18.0, r:0.82};
+
+    const door = new THREE.Mesh(new THREE.BoxGeometry(1.15,2.15,0.08), mat(0x3a281c));
+    door.position.set(0.62,1.4,-17.95);
+    door.rotation.y = -0.55;
+    door.name = "ajarDoor";
+    forestGroup.add(door);
+  }
+
+  function buildInterior(){
+    const wood = mat(0x3e3128,{roughness:0.9});
+    const floor = mat(0x4a3b30,{roughness:0.92});
+    const plaster = mat(0x8a7a68,{roughness:0.95, emissive:0x2a2018, emissiveIntensity:0.12});
+    addSolid(houseIntGroup, 0,-1,0, 20,1,20, floor, {cast:false, hidden:true});
+    addSolid(houseIntGroup, 0,0,0.02, 8.2,0.08,8.2, floor, {cast:false});
+    addSolid(houseIntGroup, -4.1,0.08,0, 0.35,3.1,8.2, plaster);
+    addSolid(houseIntGroup, 4.1,0.08,0, 0.35,3.1,8.2, plaster);
+    addSolid(houseIntGroup, 0,0.08,-4.05, 8.2,3.1,0.35, plaster);
+    addSolid(houseIntGroup, -2.5,0.08,4.05, 3.2,3.1,0.35, plaster);
+    addSolid(houseIntGroup, 2.5,0.08,4.05, 3.2,3.1,0.35, plaster);
+    addSolid(houseIntGroup, 0,2.18,4.05, 1.8,1.0,0.35, plaster);
+    addSolid(houseIntGroup, 0,0.08,4.05, 1.75,2.12,0.28, wood);
+
+    const table = new THREE.Mesh(new THREE.BoxGeometry(1.6,0.12,0.9), wood);
+    table.position.set(-1.15,0.82,-0.8); table.castShadow=true; houseIntGroup.add(table);
+    for (const x of [-1.8,-0.5]){
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.08,0.76,0.08), wood);
+      leg.position.set(x,0.38,-0.8); houseIntGroup.add(leg);
+    }
+    const chair = new THREE.Mesh(new THREE.BoxGeometry(0.45,0.5,0.45), wood);
+    chair.position.set(-1.15,0.33,0.15); houseIntGroup.add(chair);
+    const hearth = new THREE.Mesh(new THREE.BoxGeometry(1.8,1.4,0.6), mat(0x3a3430,{emissive:0x5a2010, emissiveIntensity:0.35}));
+    hearth.position.set(0,0.78,-3.6); houseIntGroup.add(hearth);
+    const glow = new THREE.PointLight(0xff7a3a, 4.2, 11, 1.4);
+    glow.position.set(0,1.1,-3.0); glow.castShadow = true;
+    houseIntGroup.add(glow);
+    const fill = new THREE.PointLight(0xffd2a8, 6.5, 16);
+    fill.position.set(0, 2.35, 0.2);
+    houseIntGroup.add(fill);
+    houseIntGroup.add(new THREE.PointLight(0x88a0c0, 2.2, 14));
+    houseIntGroup.add(new THREE.AmbientLight(0x6a5340, 2.4));
+
+    const cob = new THREE.Mesh(new THREE.PlaneGeometry(1.2,0.9), new THREE.MeshBasicMaterial({
+      color:0xddd0c0, transparent:true, opacity:0.18, side:THREE.DoubleSide
+    }));
+    cob.position.set(-2.4,2.3,1.5); cob.rotation.z = 0.4; houseIntGroup.add(cob);
+
+    witchHouse = makeWitch(1);
+    witchHouse.position.set(2.6,0,-2.8);
+    witchHouse.rotation.y = -0.7;
+    witchHouse.visible = false;
+    houseIntGroup.add(witchHouse);
+  }
+
+  function buildObby(){
+    const wood = mat(0x6b4e32,{roughness:0.88});
+    const stone = mat(0x5c5a58,{roughness:0.9});
+    const magic = mat(0x4a2a66,{roughness:0.55, emissive:0x2a1040, emissiveIntensity:0.35});
+    const gold = mat(0xe8c96a,{roughness:0.4, metalness:0.3, emissive:0x8a6418, emissiveIntensity:0.25});
+
+    addSolid(obbyGroup, 0,8,0, 10,1,12, stone, {checkpoint:true});
+    addSolid(obbyGroup, 0,8.15,-9.4, 3.4,0.85,3.4, wood);
+    addSolid(obbyGroup, 2.6,8.55,-14.4, 2.7,0.85,2.7, wood);
+    addSolid(obbyGroup, -2.4,9.0,-20.6, 2.7,0.85,2.7, wood);
+    addSolid(obbyGroup, 0,9.5,-27.2, 3.6,0.9,3.2, stone, {checkpoint:true});
+    addSolid(obbyGroup, 0,10.1,-34.5, 2.8,0.7,2.8, magic, {moving:true, amp:3.2, speed:1.15, axis:"x"});
+    addSolid(obbyGroup, 0,10.7,-41.8, 2.5,0.85,2.5, wood);
+    addSolid(obbyGroup, 0,11.2,-49.4, 0.55,0.55,8.4, stone);
+    addSolid(obbyGroup, 0,11.9,-57.6, 3.0,0.85,3.0, wood, {checkpoint:true});
+    addSolid(obbyGroup, 3.6,12.6,-64.2, 2.5,0.8,2.5, magic);
+    addSolid(obbyGroup, -3.4,13.3,-70.8, 2.5,0.8,2.5, magic);
+    addSolid(obbyGroup, 0,14.0,-77.6, 2.8,0.85,2.8, wood);
+    addSolid(obbyGroup, 0,14.6,-86.5, 8.5,1.0,8.5, gold, {checkpoint:true, finish:true});
+
+    const arch = new THREE.Mesh(new THREE.TorusGeometry(2.1,0.18,8,20,Math.PI), gold);
+    arch.position.set(0,17.2,-86.5); arch.rotation.y = Math.PI/2;
+    obbyGroup.add(arch);
+
+    witchFly = makeWitch(1.15);
+    witchFly.position.set(8,18,-40);
+    obbyGroup.add(witchFly);
+
+    obbyGroup.add(new THREE.HemisphereLight(0xb8a0ff, 0x1a1020, 1.5));
+    const moon = new THREE.DirectionalLight(0xd7c4ff, 3.4);
+    moon.position.set(-12,24,-10);
+    moon.castShadow = true;
+    moon.shadow.mapSize.set(1024,1024);
+    obbyGroup.add(moon);
+    obbyGroup.add(new THREE.AmbientLight(0x5a3080, 0.9));
+
+    for (let i=0;i<18;i++){
+      const shard = new THREE.Mesh(new THREE.OctahedronGeometry(0.18+Math.random()*0.2), magic);
+      shard.position.set((Math.random()-0.5)*22, 10+Math.random()*12, -Math.random()*90);
+      obbyGroup.add(shard);
+    }
+  }
+
+  function loadPhysics(group){
+    solids = (group.userData.solids || []).slice();
+    moving = (group.userData.moving || []).slice();
+    checkpoints = (group.userData.checkpoints || []).map(c=>({x:c.x, y:c.y, z:c.z}));
+    finishBox = group.userData.finish || null;
+  }
+
+  function setMode(next){
+    mode = next;
+    forestGroup.visible = next==="forest" || next==="title";
+    houseIntGroup.visible = next==="house" || next==="entry" || next==="scare";
+    obbyGroup.visible = next==="obby" || next==="win";
+    if (houseIntGroup.visible) loadPhysics(houseIntGroup);
+    else if (obbyGroup.visible) loadPhysics(obbyGroup);
+    else loadPhysics(forestGroup);
+    keys = {};
+    joy.x = 0; joy.y = 0; joy.active = false;
+    if (knobEl){ knobEl.style.left="34px"; knobEl.style.top="34px"; }
+  }
+
+  function applySceneLook(){
+    if (mode==="forest" || mode==="title"){
+      scene.background = new THREE.Color(0x8ea8b6);
+      scene.fog = new THREE.Fog(0x8ea8b6, 16, 58);
+      renderer.toneMappingExposure = 1.35;
+    } else if (mode==="house" || mode==="entry" || mode==="scare"){
+      scene.background = new THREE.Color(0x1c140e);
+      scene.fog = new THREE.Fog(0x1c140e, 7, 18);
+      renderer.toneMappingExposure = 1.05;
+    } else {
+      scene.background = new THREE.Color(0x14081c);
+      scene.fog = new THREE.Fog(0x14081c, 12, 70);
+      renderer.toneMappingExposure = 1.12;
+    }
+  }
+
+  function placePlayer(x,y,z, yaw){
+    player.position.set(x,y,z);
+    vel.set(0,0,0);
+    if (yaw!=null) camYaw = yaw;
+    spawn.set(x,y,z);
+  }
+
+  function animateGirl(dt, movingNow){
+    const g = girl;
+    if (movingNow) walkPhase += dt * 10.5;
+    else walkPhase += dt * 1.2;
+    const swing = movingNow ? Math.sin(walkPhase)*0.55 : Math.sin(walkPhase)*0.06;
+    g.leftLeg.rotation.x = swing;
+    g.rightLeg.rotation.x = -swing;
+    g.leftArm.rotation.x = -swing*0.7;
+    g.rightArm.rotation.x = swing*0.7;
+    if (g.body) g.body.position.y = movingNow ? Math.abs(Math.sin(walkPhase))*0.04 : 0;
+  }
+
+  function inputVec(){
+    let x = joy.x;
+    let z = joy.y;
+    if (keys.KeyA || keys.ArrowLeft) x -= 1;
+    if (keys.KeyD || keys.ArrowRight) x += 1;
+    if (keys.KeyW || keys.ArrowUp) z -= 1;
+    if (keys.KeyS || keys.ArrowDown) z += 1;
+    const m = Math.hypot(x,z);
+    if (m>1){ x/=m; z/=m; }
+    return {x,z};
+  }
+
+  function collidePlayer(){
+    onGround = false;
+    const p = player.position;
+    for (const b of solids){
+      const overlapX = p.x + PLAYER_R > b.minx && p.x - PLAYER_R < b.maxx;
+      const overlapZ = p.z + PLAYER_R > b.minz && p.z - PLAYER_R < b.maxz;
+      if (!overlapX || !overlapZ) continue;
+      const feet = p.y;
+      const onTop = vel.y <= 2 && feet >= b.maxy - 0.7 && feet <= b.maxy + 0.45;
+      if (onTop){
+        p.y = b.maxy;
+        vel.y = 0;
+        onGround = true;
+        p.x += b.vx||0;
+        p.z += b.vz||0;
+        continue;
+      }
+      const overlapY = feet < b.maxy - 0.2 && feet + PLAYER_H > b.miny + 0.05;
+      if (overlapY){
+        const left = (p.x+PLAYER_R) - b.minx;
+        const right = b.maxx - (p.x-PLAYER_R);
+        const near = (p.z+PLAYER_R) - b.minz;
+        const far = b.maxz - (p.z-PLAYER_R);
+        const minH = Math.min(left,right,near,far);
+        if (minH===left) p.x = b.minx - PLAYER_R;
+        else if (minH===right) p.x = b.maxx + PLAYER_R;
+        else if (minH===near) p.z = b.minz - PLAYER_R;
+        else p.z = b.maxz + PLAYER_R;
+        if (minH===left || minH===right) vel.x = 0;
+        else vel.z = 0;
+      }
+    }
+  }
+
+  function updateMoving(t, dt){
+    for (const b of moving){
+      const prevX = (b.minx+b.maxx)/2;
+      const prevZ = (b.minz+b.maxz)/2;
+      let x = b.ox, z = b.oz;
+      if (b.axis==="x") x = b.ox + Math.sin(t*b.speed + b.phase)*b.amp;
+      else z = b.oz + Math.sin(t*b.speed + b.phase)*b.amp;
+      const w = b.maxx-b.minx, d = b.maxz-b.minz;
+      b.minx = x-w/2; b.maxx = x+w/2;
+      b.minz = z-d/2; b.maxz = z+d/2;
+      b.vx = x - prevX;
+      b.vz = z - prevZ;
+      b.mesh.position.x = x;
+      b.mesh.position.z = z;
+    }
+  }
+
+  function lookAndMove(dt){
+    const inp = inputVec();
+    const sprint = keys.ShiftLeft || keys.ShiftRight;
+    const speed = (mode==="obby" ? 6.6 : 4.6) * (sprint?1.28:1);
+    const fx = -Math.sin(camYaw);
+    const fz = -Math.cos(camYaw);
+    const rx = Math.cos(camYaw);
+    const rz = -Math.sin(camYaw);
+    const wishX = fx*(-inp.z) + rx*inp.x;
+    const wishZ = fz*(-inp.z) + rz*inp.x;
+    vel.x += (wishX*speed - vel.x) * Math.min(1, dt*10);
+    vel.z += (wishZ*speed - vel.z) * Math.min(1, dt*10);
+    if (Math.abs(inp.x)<0.05 && Math.abs(inp.z)<0.05){
+      vel.x *= Math.pow(0.04, dt);
+      vel.z *= Math.pow(0.04, dt);
+    }
+    vel.y -= (mode==="obby"?20.5:24) * dt;
+    if (onGround) coyote = 0.12; else coyote -= dt;
+    jumpBuf -= dt;
+    if (jumpBuf>0 && coyote>0){
+      vel.y = mode==="obby" ? 8.7 : 7.2;
+      onGround = false; coyote = 0; jumpBuf = 0;
+      blip(180,0.08,"sine",0.03);
+    }
+    player.position.x += vel.x * dt;
+    player.position.y += vel.y * dt;
+    player.position.z += vel.z * dt;
+    collidePlayer();
+    const movingNow = Math.hypot(vel.x, vel.z) > 0.4;
+    if (movingNow){
+      const face = Math.atan2(vel.x, vel.z);
+      girl.group.rotation.y += Math.atan2(Math.sin(face-girl.group.rotation.y), Math.cos(face-girl.group.rotation.y)) * Math.min(1,dt*8);
+    }
+    animateGirl(dt, movingNow);
+
+    if (mode==="obby" && player.position.y < 4){
+      player.position.copy(spawn);
+      vel.set(0,0,0);
+      if (!story.obbyGrace){
+        caption("The curse yanks you back.", 2.2);
+        blip(90,0.2,"sawtooth",0.04);
+      }
+    }
+    if (mode==="forest" && player.position.y < -2){
+      player.position.set(0,0,22); vel.set(0,0,0);
+    }
+  }
+
+  function updateCamera(dt){
+    const head = player.position.clone();
+    head.y += 1.42;
+    const dist = mode==="scare" ? 2.9 : (mode==="house" || mode==="entry") ? 2.55 : 4.4;
+    const cp = camPitch;
+    const ox = Math.sin(camYaw) * Math.cos(cp) * dist;
+    const oy = Math.sin(cp) * dist + 0.35;
+    const oz = Math.cos(camYaw) * Math.cos(cp) * dist;
+    const desired = new THREE.Vector3(head.x+ox, head.y+oy, head.z+oz);
+    if (shake>0){
+      desired.x += (Math.random()-0.5)*shake;
+      desired.y += (Math.random()-0.5)*shake;
+      shake *= Math.pow(0.04, dt);
+    }
+    camera.position.lerp(desired, mode==="entry"?0.08:0.18);
+    camera.lookAt(head);
+  }
+
+  function forestStory(){
+    if (!story.sawWitch){
+      const toWitch = new THREE.Vector3().subVectors(witchPeek.position, camera.position).normalize();
+      const look = new THREE.Vector3(); camera.getWorldDirection(look);
+      const dist = camera.position.distanceTo(witchPeek.position);
+      if (dist<16 && look.dot(toWitch)>0.72){
+        story.sawWitch = true;
+        caption("Someone is watching from behind that tree.");
+        hintEl.textContent = "Keep walking. The house is just ahead.";
+      }
+    }
+    witchPeek.position.x = -7.35 + Math.sin(clock.elapsedTime*0.7)*0.08;
+    if (doorTrigger && Math.hypot(player.position.x-doorTrigger.x, player.position.z-doorTrigger.z) < doorTrigger.r && player.position.y<2.4){
+      beginEntry();
+    }
+  }
+
+  function beginEntry(){
+    if (story.entered) return;
+    story.entered = true;
+    fade(true);
+    blip(70,0.35,"square",0.06);
+    setTimeout(()=>{
+      setMode("entry");
+      applySceneLook();
+      solids = houseIntGroup.userData.solids.slice();
+      placePlayer(0, 0.08, 0.15, 0);
+      girl.group.rotation.y = Math.PI;
+      witchHouse.visible = false;
+      fade(false);
+      caption("The door groans shut. It will not open.");
+      cutT = 0;
+    }, 520);
+  }
+
+  function updateEntry(dt){
+    cutT += dt;
+    if (cutT < 1.5){
+      camYaw += (0 - camYaw) * Math.min(1, dt*3);
+      camPitch = 0.1;
+    } else {
+      camYaw += (Math.PI - camYaw) * Math.min(1, dt*2.4);
+      camPitch = 0.12;
+      if (!witchHouse.visible){
+        witchHouse.visible = true;
+        witchHouse.position.set(0.15,0,3.55);
+        witchHouse.rotation.y = Math.PI;
+        caption("A shadow slipped in behind you. She followed you from the trees.");
+      }
+    }
+    if (cutT > 4.0){
+      witchHouse.position.set(0,0,-2.6);
+      witchHouse.rotation.y = 0;
+      setMode("house");
+      camYaw = 0;
+      solids = houseIntGroup.userData.solids.slice();
+      caption("This was never just an abandoned house. A witch lived here.");
+      story.scareReady = 0;
+    }
+  }
+
+  function houseStory(dt){
+    story.scareReady += dt;
+    const nearWitch = player.position.distanceTo(witchHouse.position) < 1.7;
+    if (!story.scareDone && (story.scareReady>7.5 || (story.scareReady>2 && nearWitch))) startScare();
+    const backDoor = player.position.z > 3.55 && Math.abs(player.position.x)<0.9;
+    if (backDoor) caption("There is no escape. The door is a wall now.", 2.5);
+  }
+
+  function startScare(){
+    story.scareDone = true;
+    setMode("scare");
+    solids = houseIntGroup.userData.solids.slice();
+    witchHouse.visible = true;
+    witchHouse.position.set(player.position.x, 0, player.position.z - 1.2);
+    witchHouse.rotation.y = 0;
+    if (!witchHouse.userData.scareLight){
+      const sl = new THREE.PointLight(0xc084fc, 7, 7);
+      sl.position.set(0, 1.6, 0.4);
+      witchHouse.add(sl);
+      witchHouse.userData.scareLight = sl;
+    }
+    witchHouse.userData.scareLight.visible = true;
+    spellEl.classList.add("show");
+    shake = 0.45;
+    caption("BIPITY BOPPITY BOO!", 3);
+    blip(140,0.5,"sawtooth",0.07);
+    setTimeout(()=>blip(90,0.6,"triangle",0.06), 180);
+    cutT = 0;
+  }
+
+  function updateScare(dt){
+    cutT += dt;
+    camPitch = 0.22;
+    witchHouse.position.y = Math.sin(cutT*18)*0.05;
+    if (cutT>3.0){
+      spellEl.classList.remove("show");
+      fade(true);
+    }
+    if (cutT>3.8){
+      beginObby();
+    }
+  }
+
+  function beginObby(){
+    fade(false);
+    setMode("obby");
+    applySceneLook();
+    solids = obbyGroup.userData.solids.slice();
+    moving = obbyGroup.userData.moving.slice();
+    checkpoints = obbyGroup.userData.checkpoints.slice();
+    finishBox = obbyGroup.userData.finish;
+    placePlayer(0, 9.05, 1.8, 0);
+    girl.group.rotation.y = Math.PI;
+    camPitch = 0.2;
+    camYaw = 0;
+    story.obbyGrace = 1.4;
+    caption("The house is gone. Jump. Don't fall. The witch is still watching.");
+    hintEl.textContent = "Left stick to move · two fingers to look · JUMP to jump";
+  }
+
+  function obbyStory(){
+    if (witchFly){
+      const t = clock.elapsedTime;
+      witchFly.position.set(Math.sin(t*0.4)*10, 16+Math.sin(t)*0.6, player.position.z - 8);
+      witchFly.rotation.y = t;
+    }
+    for (const c of checkpoints){
+      if (Math.hypot(player.position.x-c.x, player.position.z-c.z)<2.2 && Math.abs(player.position.y-c.y)<1.4){
+        if (spawn.distanceTo(c)>0.8){
+          spawn.set(c.x, c.y, c.z);
+          caption("The air sticks. A checkpoint.", 1.8);
+        }
+      }
+    }
+    if (finishBox){
+      const p = player.position;
+      if (p.x>finishBox.minx && p.x<finishBox.maxx && p.z>finishBox.minz && p.z<finishBox.maxz && p.y>=finishBox.miny-0.2){
+        winGame();
+      }
+    }
+  }
+
+  function winGame(){
+    if (mode==="win") return;
+    mode = "win";
+    caption("The last platform holds. The spell rips apart.");
+    document.getElementById("winOverlay").classList.add("show");
+    blip(440,0.25,"sine",0.05);
+  }
+
+  function update(dt){
+    const t = clock.elapsedTime;
+    if (captionTimer>0){
+      captionTimer -= dt;
+      if (captionTimer<=0) captionEl.classList.remove("show");
+    }
+    if (mode==="title"){
+      updateCamera(dt);
+      return;
+    }
+    if (mode==="entry"){
+      updateEntry(dt);
+      updateCamera(dt);
+      return;
+    }
+    if (mode==="scare"){
+      updateScare(dt);
+      updateCamera(dt);
+      return;
+    }
+    if (mode==="win"){
+      updateCamera(dt);
+      return;
+    }
+    updateMoving(t, dt);
+    lookAndMove(dt);
+    updateGrass(dt);
+    if (mode==="forest") forestStory();
+    if (mode==="house") houseStory(dt);
+    if (mode==="obby"){
+      if (story.obbyGrace>0) story.obbyGrace -= dt;
+      obbyStory();
+    }
+    updateCamera(dt);
+  }
+
+  function bindInput(){
+    let lastLook = null;
+    let mouseDrag = false;
+    let lastMX = 0, lastMY = 0;
+    let moveTouchId = null;
+    const lookBlocked = ()=> mode==="title"||mode==="entry"||mode==="scare"||mode==="win";
+    const onOverlay = (t)=> !!(t && t.closest && t.closest(".overlay.show"));
+
+    function applyLook(dx, dy, touch){
+      if (lookBlocked()) return;
+      const s = touch ? 0.005 : 0.0026;
+      camYaw -= dx * s;
+      camPitch = Math.max(-0.9, Math.min(0.85, camPitch - dy * s));
+    }
+
+    function setJoy(cx, cy){
+      const r = joyEl.getBoundingClientRect();
+      let dx = cx-(r.left+r.width/2), dy = cy-(r.top+r.height/2);
+      const max = r.width*0.42, m=Math.hypot(dx,dy)||1;
+      if (m>max){ dx=dx/m*max; dy=dy/m*max; }
+      joy.x = dx/max; joy.y = dy/max; joy.active = true;
+      knobEl.style.left=(34+dx)+"px"; knobEl.style.top=(34+dy)+"px";
+    }
+    function endJoy(){
+      joy.x=0; joy.y=0; joy.active=false; moveTouchId=null;
+      knobEl.style.left="34px"; knobEl.style.top="34px";
+    }
+
+    function inMovePad(x, y){
+      const r = movePad.getBoundingClientRect();
+      return x>=r.left && x<=r.right && y>=r.top && y<=r.bottom;
+    }
+
+    function handleMoveTouches(touchList){
+      let found = null;
+      for (let i=0;i<touchList.length;i++){
+        const t = touchList[i];
+        if (moveTouchId!=null && t.identifier===moveTouchId){ found=t; break; }
+      }
+      if (!found){
+        for (let i=0;i<touchList.length;i++){
+          const t = touchList[i];
+          if (inMovePad(t.clientX, t.clientY)){ found=t; moveTouchId=t.identifier; break; }
+        }
+      }
+      if (found) setJoy(found.clientX, found.clientY);
+      else endJoy();
+    }
+
+    function handleLookTouches(touchList, isStart){
+      if (lookBlocked() || touchList.length<2){
+        lastLook = null;
+        return;
+      }
+      let x=0, y=0;
+      for (let i=0;i<touchList.length;i++){
+        x += touchList[i].clientX;
+        y += touchList[i].clientY;
+      }
+      x /= touchList.length;
+      y /= touchList.length;
+      if (!isStart && lastLook) applyLook(x-lastLook.x, y-lastLook.y, true);
+      lastLook = {x,y};
+    }
+
+    function onTouch(e){
+      if (onOverlay(e.target)) return;
+      if (mode==="title") return;
+      if (e.target===jumpBtn || jumpBtn.contains(e.target)){
+        if (e.touches.length>=2) e.preventDefault();
+        return;
+      }
+      e.preventDefault();
+      ensureAudio();
+      handleMoveTouches(e.touches);
+      handleLookTouches(e.touches, e.type==="touchstart");
+    }
+    function onTouchEnd(e){
+      if (onOverlay(e.target)) return;
+      if (mode==="title") return;
+      e.preventDefault();
+      handleMoveTouches(e.touches);
+      if (e.touches.length<2) lastLook = null;
+    }
+
+    document.addEventListener("touchstart", onTouch, {passive:false, capture:true});
+    document.addEventListener("touchmove", onTouch, {passive:false, capture:true});
+    document.addEventListener("touchend", onTouchEnd, {passive:false, capture:true});
+    document.addEventListener("touchcancel", onTouchEnd, {passive:false, capture:true});
+
+    window.addEventListener("keydown", e=>{
+      keys[e.code]=true;
+      if (e.code==="Space"){ e.preventDefault(); jumpBuf=0.18; }
+    });
+    window.addEventListener("keyup", e=>{ keys[e.code]=false; });
+
+    jumpBtn.addEventListener("pointerdown", e=>{
+      e.preventDefault(); e.stopPropagation();
+      jumpBuf = 0.22;
+      ensureAudio();
+    });
+
+    lookLayer.addEventListener("mousedown", e=>{
+      if (e.button!==0 || lookBlocked() || onOverlay(e.target)) return;
+      mouseDrag = true;
+      lastMX = e.clientX; lastMY = e.clientY;
+      ensureAudio();
+    });
+    window.addEventListener("mousemove", e=>{
+      if (!mouseDrag) return;
+      applyLook(e.clientX-lastMX, e.clientY-lastMY, false);
+      lastMX = e.clientX; lastMY = e.clientY;
+    });
+    window.addEventListener("mouseup", ()=>{ mouseDrag=false; endJoy(); });
+
+    movePad.addEventListener("mousedown", e=>{
+      e.preventDefault();
+      setJoy(e.clientX, e.clientY);
+    });
+    window.addEventListener("mousemove", e=>{
+      if (!joy.active || e.buttons!==1 || moveTouchId!=null) return;
+      if (e.target===movePad || movePad.contains(e.target) || joy.active){
+        if (mouseDrag) return;
+        if (e.clientX < window.innerWidth*0.5) setJoy(e.clientX, e.clientY);
+      }
+    });
+  }
+
+  function stashSolids(group){
+    group.userData.solids = solids.slice();
+    group.userData.moving = moving.slice();
+    group.userData.checkpoints = checkpoints.map(c=>({x:c.x,y:c.y,z:c.z}));
+    group.userData.finish = finishBox;
+  }
+
+  function startGame(){
+    if (audio.ctx && audio.ctx.state==="suspended") audio.ctx.resume();
+    ensureAudio();
+    document.getElementById("startOverlay").classList.remove("show");
+    document.getElementById("winOverlay").classList.remove("show");
+    story = {sawWitch:false, entered:false, scareReady:0, scareDone:false, obbyGrace:0};
+    setMode("forest");
+    applySceneLook();
+    solids = forestGroup.userData.solids.slice();
+    placePlayer(0, 0.05, 22, 0);
+    girl.group.rotation.y = Math.PI;
+    camPitch = 0.16;
+    caption("The forest is cold. That abandoned house might be a place to live.");
+    hintEl.textContent = "Left stick to move · two fingers to look · JUMP or Space to jump";
+  }
+
+  girl = makeGirl();
+  player = girl.group;
+  scene.add(player);
+
+  solids = []; moving = []; checkpoints = [];
+  buildForest();
+  stashSolids(forestGroup);
+
+  solids = []; moving = []; checkpoints = [];
+  buildInterior();
+  stashSolids(houseIntGroup);
+
+  solids = []; moving = []; checkpoints = [];
+  buildObby();
+  stashSolids(obbyGroup);
+
+  setMode("title");
+  applySceneLook();
+  solids = forestGroup.userData.solids.slice();
+  placePlayer(0,0.05,22,0);
+  girl.group.rotation.y = Math.PI;
+
+  bindInput();
+  document.getElementById("startBtn").addEventListener("click", startGame);
+  document.getElementById("againBtn").addEventListener("click", startGame);
+
+  captionEl.classList.add("show");
+  captionTimer = 8;
+
+  let acc = 0;
+  function loop(){
+    const dt = Math.min(0.05, clock.getDelta());
+    acc += dt;
+    const step = 1/60;
+    while (acc >= step){ update(step); acc -= step; }
+    renderer.render(scene, camera);
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

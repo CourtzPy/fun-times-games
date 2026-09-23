@@ -41,6 +41,9 @@
   .stat .val{font-weight:700; font-size:13.5px; font-variant-numeric:tabular-nums;}
   .stat .lbl{font-size:9px; color:var(--bone-dim); text-transform:uppercase; letter-spacing:0.4px; margin-left:2px;}
   .stat.gold .val{color:var(--torch);}
+  .stat.gems{display:none;}
+  .stat.gems.show{display:flex;}
+  .stat.gems .val{color:#8ec8e8;}
   .stat.lives .val{color:var(--blood-bright);}
   .stat.phase .val{color:var(--toxic);}
   .stat.phase.night .val{color:#8fa9ff;}
@@ -108,12 +111,42 @@
   .overlay-card .stat-line b{color:var(--torch);}
   .select-card{border-color:var(--stone-light);}
   .select-card h2{color:var(--torch);}
+
+  .preview-layer{
+    display:none;
+    position:absolute;
+    inset:0;
+    z-index:6;
+    pointer-events:none;
+  }
+  .preview-layer.show{display:block;}
+  .preview-progress{
+    position:absolute; top:10px; left:10px; right:78px; height:4px;
+    background:rgba(0,0,0,0.4); border-radius:2px; overflow:hidden;
+  }
+  #previewBar{height:100%; width:0; background:var(--torch);}
+  .preview-caption{
+    position:absolute; left:10px; right:10px; bottom:96px;
+    background:rgba(20,16,25,0.9); border:1px solid var(--stone-light);
+    border-radius:10px; padding:8px 10px;
+  }
+  .preview-step{font-size:10px; color:var(--bone-dim);}
+  .preview-title{font-family:'Cinzel',serif; font-size:14px; color:var(--torch); font-weight:700;}
+  .preview-sub{font-size:11px; color:var(--bone-dim); margin-top:2px; line-height:1.35;}
+  .preview-skip{
+    pointer-events:auto;
+    position:absolute;
+    top:8px; right:8px;
+    z-index:7;
+    padding:8px 12px;
+    font-size:12px;
+  }
 </style>
 </head>
 <body>
 
   <div class="title-row">
-    <p class="game-title">MONSTER KEEP</p>
+    <p class="game-title" id="gameTitle">MONSTER KEEP</p>
     <div class="wave-lbl" id="waveEl">Wave: 0</div>
   </div>
 
@@ -121,6 +154,10 @@
     <div class="stat gold">
       <svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="#d9822e" stroke="#8a5518" stroke-width="1"/><circle cx="8" cy="8" r="4" fill="none" stroke="#8a5518" stroke-width="0.8"/><path d="M6 6.2 L8 5.2 L10 6.2" fill="none" stroke="#f2c98a" stroke-width="0.9" stroke-linecap="round"/></svg>
       <span class="val" id="goldVal">0</span>
+    </div>
+    <div class="stat gems" id="gemStat">
+      <svg viewBox="0 0 16 16"><path d="M8 1.6 L13.4 6.2 L8 14.4 L2.6 6.2 Z" fill="#8ec8e8" stroke="#3a6a82" stroke-width="0.9"/><path d="M2.6 6.2 L13.4 6.2" fill="none" stroke="#3a6a82" stroke-width="0.7"/><path d="M8 1.6 L6.2 6.2 L8 14.4 L9.8 6.2 Z" fill="rgba(255,255,255,0.28)"/></svg>
+      <span class="val" id="gemVal">0</span>
     </div>
     <div class="stat lives">
       <svg viewBox="0 0 16 16"><path d="M8 13.5 C4 10.8 1.5 8.4 1.5 5.8 C1.5 3.7 3.1 2.4 4.9 2.4 C6.1 2.4 7.2 3 8 4.1 C8.8 3 9.9 2.4 11.1 2.4 C12.9 2.4 14.5 3.7 14.5 5.8 C14.5 8.4 12 10.8 8 13.5 Z" fill="#c8404f" stroke="#7a1f28" stroke-width="0.8"/></svg>
@@ -269,8 +306,10 @@
       ears:"tusks",weapon:"none",armColor:"#8a7aa0",bulk:1.4,expr:"plain"},
     merchant:{body:"#7a5c3a",dark:"#4f3a22",cloth:"#5a4028",head:"#e0b98a",sclera:"#f5ede0",pupil:"#2a2015",
       ears:"hood",cloak:"#6b4a2e",weapon:"none",armColor:"#7a5c3a",bulk:0.95,expr:"plain"},
+    mummy:{body:"#cbb892",dark:"#8a7350",cloth:"#e8dcc0",head:"#d8c9a4",sclera:"#3a3228",pupil:"#1a1410",
+      ears:"none",weapon:"none",armColor:"#cbb892",bulk:0.95,expr:"plain",bandages:true},
   };
-  const BASE_SCALE={goblin:16,orc:17,troll:18,dragon:19,villager:13,soldier:14,archer:13,knight:15,boss:24,gremlin:12,ogre:21,merchant:14};
+  const BASE_SCALE={goblin:16,orc:17,troll:18,dragon:19,villager:13,soldier:14,archer:13,knight:15,boss:24,gremlin:12,ogre:21,merchant:14,mummy:14};
   const HERO_DISPLAY_SCALE={goblin:19,orc:20,troll:22,dragon:23};
 
   function ptOut(ctx,fillStyle,lw){
@@ -513,6 +552,14 @@
       ctx.ellipse(0,-0.28*s, 0.32*s*bulk, 0.14*s*bulk, 0,0,Math.PI*2);
       ptOut(ctx,C.cloth,0.025*s);
     }
+    if(C.bandages){
+      ctx.strokeStyle="#f4ead4"; ctx.lineWidth=0.05*s*bulk; ctx.lineCap="round";
+      [[-0.22,-0.62,0.24,-0.48],[-0.26,-0.48,0.26,-0.34],[-0.22,-0.34,0.22,-0.2]].forEach(([x1,y1,x2,y2])=>{
+        ctx.beginPath(); ctx.moveTo(x1*s*bulk,y1*s); ctx.lineTo(x2*s*bulk,y2*s); ctx.stroke();
+      });
+      ctx.strokeStyle="rgba(90,70,40,0.35)"; ctx.lineWidth=0.018*s*bulk;
+      ctx.beginPath(); ctx.moveTo(-0.18*s*bulk,-0.55*s); ctx.lineTo(0.2*s*bulk,-0.4*s); ctx.stroke();
+    }
 
     [[-1,false],[1,true]].forEach(([side,isWeapon])=>{
       ctx.save();
@@ -553,6 +600,19 @@
     const cyc=blinkClock%3.2;
     const blinkOpen = cyc>3.0 ? Math.max(0,(3.2-cyc)/0.2) : 1;
     drawFace(ctx,C,s,bulk,headCY,blinkOpen);
+    if(C.bandages){
+      ctx.strokeStyle="#f4ead4"; ctx.lineWidth=0.045*s*bulk; ctx.lineCap="round";
+      ctx.beginPath(); ctx.arc(0,headCY,0.3*s*bulk,0.15,1.15); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0,headCY,0.3*s*bulk,2.15,3.2); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(-0.24*s*bulk, headCY-0.06*s*bulk);
+      ctx.lineTo(0.24*s*bulk, headCY+0.1*s*bulk);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(-0.2*s*bulk, headCY+0.12*s*bulk);
+      ctx.lineTo(0.18*s*bulk, headCY-0.16*s*bulk);
+      ctx.stroke();
+    }
 
     ctx.restore();
   }
@@ -580,6 +640,46 @@
     ctx.strokeStyle=INK; ctx.lineWidth=1; ctx.stroke();
     ctx.fillStyle="#807c70";
     ctx.beginPath(); ctx.ellipse(-2,-1.5,3,2,0,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+
+  function cactusColumn(ctx,cx,cy,w,h,fill){
+    ctx.beginPath();
+    ctx.moveTo(cx-w/2, cy);
+    ctx.lineTo(cx-w/2, cy-h+w/2);
+    ctx.arc(cx, cy-h+w/2, w/2, Math.PI, 0);
+    ctx.lineTo(cx+w/2, cy);
+    ctx.closePath();
+    ptOut(ctx, fill, 1.05);
+    ctx.fillStyle="rgba(255,255,255,0.14)";
+    ctx.beginPath();
+    ctx.ellipse(cx-w*0.18, cy-h*0.42, w*0.16, h*0.22, 0,0,Math.PI*2);
+    ctx.fill();
+  }
+  function drawCactus(ctx,x,y,seed,amp){
+    seed=seed||0;
+    amp=amp===undefined?0:amp;
+    const scale=0.82+(seed*1.618%1)*0.34;
+    const bob=Math.sin((seed+1)*1.7)*amp;
+    ctx.save(); ctx.translate(x,y+bob); ctx.scale(scale,scale);
+    ctx.fillStyle="rgba(0,0,0,0.22)";
+    ctx.beginPath(); ctx.ellipse(0,4,9,3.2,0,0,Math.PI*2); ctx.fill();
+    const fill=seed%3===0?"#3d7a3a":(seed%3===1?"#4a8f42":"#2f6b38");
+    cactusColumn(ctx, 0, 3, 7.2, 22, fill);
+    if(seed%5!==1){
+      cactusColumn(ctx, -8, -2, 4.4, 9, fill);
+      ctx.fillStyle=fill;
+      ctx.fillRect(-8, -3, 5.5, 3.2);
+      ctx.strokeStyle=INK; ctx.lineWidth=1;
+      ctx.strokeRect(-8, -3, 5.5, 3.2);
+    }
+    if(seed%4!==2){
+      cactusColumn(ctx, 8, 0, 4.2, 8, fill);
+      ctx.fillStyle=fill;
+      ctx.fillRect(2.5, -1, 5.8, 3.2);
+      ctx.strokeStyle=INK; ctx.lineWidth=1;
+      ctx.strokeRect(2.5, -1, 5.8, 3.2);
+    }
     ctx.restore();
   }
 
@@ -620,14 +720,15 @@
   function drawHouse(ctx,house,simTime){
     if(house.type==="towerHouse"){ drawTowerHouse(ctx,house,simTime); return; }
     const bob=Math.sin(simTime*2.4+ (house.seed||0))*1.6;
+    const desert=house.type==="desert";
     if(!house.bought){
       ctx.save();
       ctx.translate(house.x,house.y+bob);
       ctx.rotate(Math.PI/4);
       roundRectPath(ctx,-12,-12,24,24,5);
-      ctx.fillStyle="rgba(20,45,20,0.6)"; ctx.fill();
+      ctx.fillStyle= desert ? "rgba(160,120,60,0.55)" : "rgba(20,45,20,0.6)"; ctx.fill();
       ctx.setLineDash([3,3]);
-      ctx.strokeStyle= house.affordHint ? "rgba(140,255,120,0.9)" : "rgba(255,255,255,0.7)";
+      ctx.strokeStyle= house.affordHint ? "rgba(140,255,120,0.9)" : (desert ? "rgba(240,210,140,0.85)" : "rgba(255,255,255,0.7)");
       ctx.lineWidth=1.5; ctx.stroke();
       ctx.setLineDash([]);
       ctx.restore();
@@ -642,8 +743,8 @@
       ctx.restore();
       return;
     }
-    const roofColor = house.type==="workshop" ? "#5a8ab0" : "#c98a4a";
-    const wallColor = house.type==="workshop" ? "#3f6b8a" : "#8a5c34";
+    const roofColor = house.type==="workshop" ? "#5a8ab0" : (desert ? "#c9a24a" : "#c98a4a");
+    const wallColor = house.type==="workshop" ? "#3f6b8a" : (desert ? "#c4a06a" : "#8a5c34");
     ctx.save();
     ctx.translate(house.x,house.y);
     ctx.fillStyle="rgba(0,0,0,0.3)";
@@ -676,6 +777,14 @@
       ctx.font="bold 10px Inter, sans-serif";
       ctx.textAlign="center"; ctx.textBaseline="middle";
       ctx.fillText("⚒ tap", 0, 0);
+      ctx.restore();
+    } else if(canExpandHouse(house)){
+      ctx.save();
+      ctx.translate(house.x,house.y-44+bob*0.5);
+      ctx.fillStyle="#ffe08a";
+      ctx.font="bold 10px Inter, sans-serif";
+      ctx.textAlign="center"; ctx.textBaseline="middle";
+      ctx.fillText("tap", 0, 0);
       ctx.restore();
     }
   }
@@ -853,6 +962,129 @@
     ctx.restore();
   }
 
+  function drawCostTag(x,y,label,bob){
+    ctx.save();
+    ctx.fillStyle="#fff";
+    ctx.font="bold 11px Inter, sans-serif";
+    ctx.textAlign="center"; ctx.textBaseline="middle";
+    ctx.fillText(label, x, y+bob);
+    ctx.restore();
+  }
+
+  function drawForgeWorkshop(ctx,bldg,simTime){
+    const bob=Math.sin(simTime*2.4+(bldg.seed||0))*1.5;
+    if(!bldg.bought){
+      ctx.save();
+      ctx.translate(bldg.x,bldg.y+bob);
+      roundRectPath(ctx,-14,-14,28,28,5);
+      ctx.fillStyle="rgba(40,32,28,0.62)"; ctx.fill();
+      ctx.setLineDash([3,3]);
+      ctx.strokeStyle= bldg.affordHint ? "rgba(140,255,120,0.9)" : "rgba(200,170,120,0.85)";
+      ctx.lineWidth=1.5; ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+      drawCostTag(bldg.x-4, bldg.y, String(bldg.cost), bob);
+      ctx.beginPath(); ctx.arc(bldg.x+16,bldg.y+bob,5,0,Math.PI*2);
+      ctx.fillStyle="#d9822e"; ctx.fill();
+      ctx.strokeStyle="#8a5518"; ctx.lineWidth=1; ctx.stroke();
+      return;
+    }
+    ctx.save();
+    ctx.translate(bldg.x,bldg.y);
+    ctx.fillStyle="rgba(0,0,0,0.32)";
+    ctx.beginPath(); ctx.ellipse(0,16,18,6.5,0,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle=INK; ctx.lineWidth=1.4;
+    ctx.fillStyle="#4a4038";
+    ctx.fillRect(-14,-4,28,20); ctx.strokeRect(-14,-4,28,20);
+    ctx.fillStyle="#2e2824";
+    ctx.beginPath(); ctx.moveTo(-18,-4); ctx.lineTo(0,-22); ctx.lineTo(18,-4); ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle="#6a6258";
+    ctx.fillRect(6,-28,6,12); ctx.strokeRect(6,-28,6,12);
+    ctx.fillStyle="#241d18";
+    ctx.fillRect(-5,6,10,10);
+    ctx.fillStyle="#8a8f99";
+    ctx.beginPath(); ctx.moveTo(-8,4); ctx.lineTo(8,4); ctx.lineTo(5,10); ctx.lineTo(-5,10); ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    ctx.restore();
+    ctx.save();
+    ctx.translate(bldg.x,bldg.y-36+bob*0.4);
+    ctx.fillStyle="#8ec8e8";
+    ctx.font="bold 10px Inter, sans-serif";
+    ctx.textAlign="center"; ctx.textBaseline="middle";
+    ctx.fillText("⚒ "+steelBars+" bars", 0, 0);
+    ctx.restore();
+  }
+
+  function drawKeepBridge(ctx,bldg,simTime){
+    const bob=Math.sin(simTime*2.2+(bldg.seed||0))*1.2;
+    if(!bldg.bought){
+      ctx.save();
+      ctx.translate(bldg.x,bldg.y+bob);
+      roundRectPath(ctx,-18,-10,36,22,4);
+      ctx.fillStyle="rgba(40,30,18,0.55)"; ctx.fill();
+      ctx.setLineDash([3,3]);
+      ctx.strokeStyle= bldg.affordHint ? "rgba(140,255,120,0.9)" : "rgba(220,180,110,0.85)";
+      ctx.lineWidth=1.5; ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+      ctx.save();
+      ctx.fillStyle="#fff";
+      ctx.font="bold 10px Inter, sans-serif";
+      ctx.textAlign="center"; ctx.textBaseline="middle";
+      ctx.fillText("5 bars", bldg.x, bldg.y+bob);
+      ctx.restore();
+      return;
+    }
+    ctx.save();
+    ctx.translate(bldg.x,bldg.y);
+    ctx.fillStyle="rgba(0,0,0,0.28)";
+    ctx.beginPath(); ctx.ellipse(0,8,22,6,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle="#6b5636";
+    ctx.fillRect(-16,-6,32,18);
+    ctx.strokeStyle=INK; ctx.lineWidth=1.3; ctx.strokeRect(-16,-6,32,18);
+    ctx.strokeStyle="#4a3a24"; ctx.lineWidth=1.2;
+    for(const dy of [-2,4,10]){
+      ctx.beginPath(); ctx.moveTo(-16,dy); ctx.lineTo(16,dy); ctx.stroke();
+    }
+    ctx.fillStyle="#5a4a32";
+    ctx.fillRect(-18,12,36,22);
+    ctx.restore();
+    ctx.save();
+    ctx.translate(bldg.x,bldg.y-22+bob*0.3);
+    ctx.fillStyle="#ffe08a";
+    ctx.font="bold 9px Inter, sans-serif";
+    ctx.textAlign="center"; ctx.textBaseline="middle";
+    ctx.fillText("The Desert", 0, 0);
+    ctx.restore();
+  }
+
+  function drawDesertReturnBridge(ctx,simTime){
+    const p=DESERT_RETURN_SPOT;
+    const bob=Math.sin(simTime*2.2)*1.1;
+    ctx.save();
+    ctx.translate(p.x,p.y);
+    ctx.fillStyle="rgba(0,0,0,0.22)";
+    ctx.beginPath(); ctx.ellipse(0,6,20,5,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle="#6b5636";
+    ctx.fillRect(-16,-8,32,16);
+    ctx.strokeStyle=INK; ctx.lineWidth=1.3; ctx.strokeRect(-16,-8,32,16);
+    ctx.strokeStyle="#4a3a24"; ctx.lineWidth=1.2;
+    for(const dy of [-4,2,8]){
+      ctx.beginPath(); ctx.moveTo(-16,dy); ctx.lineTo(16,dy); ctx.stroke();
+    }
+    ctx.fillStyle="#5a4a32";
+    ctx.fillRect(-18,-28,36,20);
+    ctx.restore();
+    ctx.save();
+    ctx.translate(p.x,p.y+20+bob*0.3);
+    ctx.fillStyle="#ffe08a";
+    ctx.font="bold 9px Inter, sans-serif";
+    ctx.textAlign="center"; ctx.textBaseline="middle";
+    ctx.fillText("Keep", 0, 0);
+    ctx.restore();
+  }
+
   // ===================== GAMEPLAY CONFIG =====================
   const HERO_STATS={
     dragon:{hp:150, speed:98, dmg:46, range:92, rate:0.8, splash:0, pierce:true, color:"#ffb35a"},
@@ -891,10 +1123,50 @@
   const TOWER_UPGRADE_MAX_LEVEL=5;
   const TOWER_UPGRADE_BASE_COST={damage:40,fireRate:45,range:35};
   const TOWER_UPGRADE_STEP_FRACTION={damage:0.10,fireRate:0.10,range:0.066};
+  const HOUSE_CAPACITY_MAX=10;
+  const HOUSE_CAPACITY_UPGRADE_COST=200;
+  const WAVE7_NIGHT=7;
+  const WAVE7_RUN_OFF_LEN=5;
+  const WAVE7_HALLWAY_LEN=60;
+  const WAVE7_RUN_BACK_LEN=5;
+  const WAVE7_CONGRATS_LEN=15;
+  const WAVE7_ARROW_DMG=30;
+  const WAVE7_IFRAME=3;
+  const WAVE7_HALL_HERO_Y=355;
+  const WAVE7_HALL_BOSS={x:140,y:168};
+  const WAVE7_CONGRATS_MSGS=["yay!","You did it!","Thank you! we love you!"];
+  const FORGE_COST=1000;
+  const FORGE_SPOT={x:100,y:90};
+  const GEMS_PER_STEEL=10;
+  const STEEL_PER_BRIDGE=5;
+  const BRIDGE_TRAVEL_LEN=3;
+  const BRIDGE_KEEP_SPOT={x:88,y:396};
+  const DESERT_RETURN_SPOT={x:88,y:36};
+  const DESERT_HOUSE_COST=500;
+  const DESERT_RECRUIT_TYPES=["mummy","mummy","ogre","gremlin"];
+  const DESERT_HOUSE_SPOTS=[
+    {x:56,y:130},{x:210,y:125},{x:48,y:230},{x:222,y:240},{x:140,y:210},{x:70,y:340}
+  ];
+  const DESERT_INTRO_OGRES=4;
+  const SAND_COLORS=["#f4e6c0","#e2c48a","#d4b06e","#c49a58","#b08948","#efe0b0"];
   function archerTowersUnlocked(){ return nightNumber>=ARCHER_TOWER_UNLOCK_NIGHT; }
   function nearArcherSpot(x,y,minD){
     for(const p of ARCHER_TOWER_SPOTS) if(Math.hypot(x-p.x,y-p.y)<minD) return true;
     return false;
+  }
+  function nearForgeOrBridge(x,y,minD){
+    if(Math.hypot(x-FORGE_SPOT.x,y-FORGE_SPOT.y)<minD) return true;
+    if(Math.hypot(x-BRIDGE_KEEP_SPOT.x,y-BRIDGE_KEEP_SPOT.y)<minD) return true;
+    return false;
+  }
+  function onKeepField(){ return currentMap==="keep" && !travel; }
+  function onDesertField(){ return currentMap==="desert" && !travel; }
+  function drawingDesert(){
+    if(travel) return travel.dest==="keep";
+    return currentMap==="desert";
+  }
+  function nearDesertReturn(x,y,minD){
+    return Math.hypot(x-DESERT_RETURN_SPOT.x,y-DESERT_RETURN_SPOT.y)<minD;
   }
 
   function nightDifficulty(n){
@@ -924,6 +1196,16 @@
   function isTier2Maxed(u){
     return u.health>=UPGRADE2_MAX_LEVEL && u.speed>=UPGRADE2_MAX_LEVEL && u.fireRate>=UPGRADE2_MAX_LEVEL;
   }
+  function isTowerUpgradesMaxed(u){
+    u=u||towerUpgrades;
+    return u.damage>=TOWER_UPGRADE_MAX_LEVEL && u.fireRate>=TOWER_UPGRADE_MAX_LEVEL && u.range>=TOWER_UPGRADE_MAX_LEVEL;
+  }
+  function isResidentialHouse(house){
+    return !!house && house.type!=="workshop" && house.type!=="towerHouse" && house.type!=="desert";
+  }
+  function canExpandHouse(house){
+    return isResidentialHouse(house) && house.bought && isTowerUpgradesMaxed() && house.capacity<HOUSE_CAPACITY_MAX;
+  }
   function enemyHealthMult(){
     let m=1;
     if(isTier2Maxed(heroUpgrades2)) m*=2;
@@ -933,12 +1215,16 @@
 
   // ===================== PROGRESS (reset on retreat, defeat, and new run) =====================
   let gold=0;
+  let diamonds=0;
+  let steelBars=0;
   let heroUpgrades={range:0,damage:0,goldGain:0};
   let heroUpgrades2={health:0,speed:0,fireRate:0};
   let towerUpgrades={damage:0,fireRate:0,range:0};
 
   function resetProgress(){
     gold=0;
+    diamonds=0;
+    steelBars=0;
     heroUpgrades={range:0,damage:0,goldGain:0};
     heroUpgrades2={health:0,speed:0,fireRate:0};
     towerUpgrades={damage:0,fireRate:0,range:0};
@@ -955,10 +1241,17 @@
   let totalKills=0;
   let incomeTimer=1;
   let recruitSpawnTimer=2;
+  let desertRecruitSpawnTimer=1.5;
   let recruitDeniedTimer=0;
+  let bridgeDeniedTimer=0;
   let battleActive=false, battleOver=false, paused=false;
   let simTime=0;
   let joyVec={x:0,y:0};
+  let wave7=null, wave7Done=false;
+  let forge=null, bridge=null;
+  let currentMap="keep", travel=null;
+  let desertHouses=[], desertRecruits=[];
+  let desertIntroPlayed=false;
 
   // ===================== CANVAS =====================
   const canvas=document.getElementById("board");
@@ -966,6 +1259,9 @@
   const bgCanvas=document.createElement("canvas");
   bgCanvas.width=LOGICAL_W; bgCanvas.height=LOGICAL_H;
   const bgCtx=bgCanvas.getContext("2d");
+  const desertCanvas=document.createElement("canvas");
+  desertCanvas.width=LOGICAL_W; desertCanvas.height=LOGICAL_H;
+  const desertCtx=desertCanvas.getContext("2d");
 
   function resizeCanvas(){
     const dpr=Math.max(1,window.devicePixelRatio||1);
@@ -986,6 +1282,7 @@
       if(Math.hypot(x-HERO_START.x,y-HERO_START.y)<38) ok=false;
       if(Math.hypot(x-WORKSHOP_SPOT.x,y-WORKSHOP_SPOT.y)<38) ok=false;
       if(nearArcherSpot(x,y,32)) ok=false;
+      if(nearForgeOrBridge(x,y,36)) ok=false;
       for(const p of TOWER_HOUSE_SPOTS) if(Math.hypot(x-p.x,y-p.y)<36) ok=false;
       if(!ok) continue;
       if(Math.random()<0.6) drawTree(bgCtx,x,y); else drawRock(bgCtx,x,y);
@@ -1017,8 +1314,43 @@
     scatterDecor();
   }
 
+  function scatterDesertDecor(){
+    let placed=0, attempts=0;
+    while(placed<14 && attempts<500){
+      attempts++;
+      const x=16+Math.random()*(LOGICAL_W-32), y=28+Math.random()*(LOGICAL_H-48);
+      let ok=!nearDesertReturn(x,y,42);
+      for(const p of DESERT_HOUSE_SPOTS) if(Math.hypot(x-p.x,y-p.y)<38) ok=false;
+      if(!ok) continue;
+      drawCactus(desertCtx,x,y, Math.random()*20);
+      placed++;
+    }
+  }
+  function prerenderDesert(){
+    const g=desertCtx.createLinearGradient(0,0,0,LOGICAL_H);
+    g.addColorStop(0,"#e2c48a");
+    g.addColorStop(0.5,"#d4b06e");
+    g.addColorStop(1,"#c49a58");
+    desertCtx.fillStyle=g;
+    desertCtx.fillRect(0,0,LOGICAL_W,LOGICAL_H);
+    for(let i=0;i<180;i++){
+      const x=Math.random()*LOGICAL_W, y=Math.random()*LOGICAL_H;
+      desertCtx.fillStyle="rgba(255,255,255,0.12)";
+      desertCtx.fillRect(x,y,1.4,1.4);
+    }
+    for(let i=0;i<40;i++){
+      const x=Math.random()*LOGICAL_W, y=Math.random()*LOGICAL_H;
+      desertCtx.fillStyle="rgba(140,100,50,0.12)";
+      desertCtx.beginPath(); desertCtx.ellipse(x,y,10+Math.random()*16,3+Math.random()*2,0,0,Math.PI*2); desertCtx.fill();
+    }
+    scatterDesertDecor();
+  }
+
   // ===================== UI refs =====================
   const goldVal=document.getElementById("goldVal");
+  const gemVal=document.getElementById("gemVal");
+  const gemStat=document.getElementById("gemStat");
+  const gameTitle=document.getElementById("gameTitle");
   const heroHpVal=document.getElementById("heroHpVal");
   const phaseVal=document.getElementById("phaseVal");
   const phaseStat=document.getElementById("phaseStat");
@@ -1440,6 +1772,29 @@
   let joyActive=false, joyPointerId=null;
   const JOY_RADIUS=23;
 
+  const keysHeld={up:false,down:false,left:false,right:false};
+  function isMoveKey(key){
+    return key==="w"||key==="W"||key==="a"||key==="A"||key==="s"||key==="S"||key==="d"||key==="D"
+      ||key==="ArrowUp"||key==="ArrowDown"||key==="ArrowLeft"||key==="ArrowRight";
+  }
+  function setMoveKey(key,down){
+    if(key==="w"||key==="W"||key==="ArrowUp") keysHeld.up=down;
+    else if(key==="s"||key==="S"||key==="ArrowDown") keysHeld.down=down;
+    else if(key==="a"||key==="A"||key==="ArrowLeft") keysHeld.left=down;
+    else if(key==="d"||key==="D"||key==="ArrowRight") keysHeld.right=down;
+  }
+  function applyKeyboardMove(){
+    if(joyActive) return;
+    let x=0,y=0;
+    if(keysHeld.left) x-=1;
+    if(keysHeld.right) x+=1;
+    if(keysHeld.up) y-=1;
+    if(keysHeld.down) y+=1;
+    const d=Math.hypot(x,y);
+    if(d>0){ x/=d; y/=d; }
+    joyVec={x,y};
+    knobEl.style.transform="translate("+(x*JOY_RADIUS)+"px,"+(y*JOY_RADIUS)+"px)";
+  }
   function joyReset(){
     joyVec={x:0,y:0};
     knobEl.style.transform="translate(0px,0px)";
@@ -1465,23 +1820,46 @@
   });
   function joyEnd(e){
     if(e.pointerId!==joyPointerId) return;
-    joyActive=false; joyPointerId=null; joyReset();
+    joyActive=false; joyPointerId=null;
+    applyKeyboardMove();
   }
   joyEl.addEventListener("pointerup",joyEnd);
   joyEl.addEventListener("pointercancel",joyEnd);
 
   // ===================== HOUSE TAP + UPGRADE SHEET =====================
   canvas.addEventListener("click",(e)=>{
-    if(!battleActive || battleOver || paused) return;
+    if(!battleActive || battleOver || paused || wave7 || travel) return;
     const rect=canvas.getBoundingClientRect();
     const scaleX=LOGICAL_W/rect.width, scaleY=LOGICAL_H/rect.height;
     const x=(e.clientX-rect.left)*scaleX, y=(e.clientY-rect.top)*scaleY;
+    if(currentMap==="desert"){
+      for(const house of desertHouses){
+        if(Math.hypot(x-house.x,y-house.y)<24){
+          if(!house.bought) tryBuyHouse(house);
+          else toast("Desert house: "+house.residents.length+"/"+house.capacity+" friends · +"+house.residents.length+"g/s");
+          return;
+        }
+      }
+      if(Math.hypot(x-DESERT_RETURN_SPOT.x,y-DESERT_RETURN_SPOT.y)<28) tryCrossBridge("keep");
+      return;
+    }
+    if(forge && Math.hypot(x-forge.x,y-forge.y)<26){
+      if(!forge.bought) tryBuyForge();
+      else openUpgradeSheet("forge");
+      return;
+    }
+    if(bridge && Math.hypot(x-bridge.x,y-bridge.y)<28){
+      if(!bridge.bought) tryBuyBridge();
+      else tryCrossBridge("desert");
+      return;
+    }
     for(const house of houses){
       const rad=house.type==="towerHouse"?32:24;
       if(Math.hypot(x-house.x,y-house.y) < rad){
         if(!house.bought) tryBuyHouse(house);
         else if(house.type==="workshop") openUpgradeSheet("hero");
         else if(house.type==="towerHouse") openUpgradeSheet("towers");
+        else if(isTowerUpgradesMaxed()) openUpgradeSheet("house", house);
         else toast("House: "+house.residents.length+"/"+house.capacity+" residents · +"+house.residents.length+"g/s");
         return;
       }
@@ -1515,6 +1893,7 @@
       for(const h of houses) if(Math.hypot(x-h.x,y-h.y)<30) ok=false;
       for(const t of trees) if(Math.hypot(x-t.x,y-t.y)<24) ok=false;
       if(nearArcherSpot(x,y,28)) ok=false;
+      if(nearForgeOrBridge(x,y,30)) ok=false;
       if(!ok) continue;
       tx=x; ty=y; break;
     }
@@ -1539,19 +1918,94 @@
     range:{icon:"🎯",name:"Tower Range"},
   };
   let upgradeSheetMode="hero";
-  function openUpgradeSheet(mode){
+  let upgradeSheetHouse=null;
+  function openUpgradeSheet(mode, house){
     upgradeSheetMode=mode||"hero";
+    upgradeSheetHouse=house||null;
     renderUpgradeSheet();
     upgradeSheetBackdrop.classList.add("show");
   }
-  function closeUpgradeSheet(){ upgradeSheetBackdrop.classList.remove("show"); }
+  function closeUpgradeSheet(){
+    upgradeSheetBackdrop.classList.remove("show");
+    upgradeSheetHouse=null;
+  }
   upgradeCloseBtn.addEventListener("click",closeUpgradeSheet);
   upgradeSheetBackdrop.addEventListener("click",(e)=>{ if(e.target===upgradeSheetBackdrop) closeUpgradeSheet(); });
+
+  function renderHouseCapacitySheet(){
+    const upgradeTitle=document.getElementById("upgradeTitle");
+    const house=upgradeSheetHouse;
+    if(!isResidentialHouse(house) || !house.bought){
+      closeUpgradeSheet();
+      return;
+    }
+    upgradeTitle.textContent="House Friends";
+    const maxed=house.capacity>=HOUSE_CAPACITY_MAX;
+    const cost=HOUSE_CAPACITY_UPGRADE_COST;
+    const row=document.createElement("div");
+    row.className="upg-row";
+    row.innerHTML=`
+      <div class="upg-icon">🏠</div>
+      <div class="upg-info">
+        <div class="upg-name">Monster friends · ${house.residents.length}/${house.capacity}</div>
+        <div class="upg-val">Capacity ${house.capacity}/${HOUSE_CAPACITY_MAX} · +1 friend slot</div>
+      </div>
+      <button class="btn upg-btn" ${maxed?"disabled":""}>${maxed?"MAX":"Upgrade · "+cost+"g"}</button>
+    `;
+    const btn=row.querySelector("button");
+    if(!maxed){
+      btn.addEventListener("click",()=>{
+        if(gold<cost){ toast("Not enough gold"); return; }
+        gold-=cost;
+        house.capacity+=1;
+        toast("This house can now hold "+house.capacity+" friends.",2000);
+        updateHud();
+        renderUpgradeSheet();
+      });
+    }
+    upgradeRows.appendChild(row);
+  }
+
+  function renderForgeSheet(){
+    const upgradeTitle=document.getElementById("upgradeTitle");
+    if(!forge || !forge.bought){
+      closeUpgradeSheet();
+      return;
+    }
+    upgradeTitle.textContent="Workshop";
+    const canForge=diamonds>=GEMS_PER_STEEL;
+    const row=document.createElement("div");
+    row.className="upg-row";
+    row.innerHTML=`
+      <div class="upg-icon">💎</div>
+      <div class="upg-info">
+        <div class="upg-name">Forge steel bar · ${diamonds} gems</div>
+        <div class="upg-val">${GEMS_PER_STEEL} gems → 1 bar · ${steelBars} bars (${STEEL_PER_BRIDGE} for a bridge)</div>
+      </div>
+      <button class="btn upg-btn" ${canForge?"":"disabled"}>${canForge?"Forge · "+GEMS_PER_STEEL+"◆":"Need "+GEMS_PER_STEEL+"◆"}</button>
+    `;
+    const btn=row.querySelector("button");
+    if(canForge){
+      btn.addEventListener("click",()=>{
+        tryForgeSteel();
+        renderUpgradeSheet();
+      });
+    }
+    upgradeRows.appendChild(row);
+  }
 
   function renderUpgradeSheet(){
     upgradeRows.innerHTML="";
     const stats=HERO_STATS[KEPT_HERO];
     const upgradeTitle=document.getElementById("upgradeTitle");
+    if(upgradeSheetMode==="forge"){
+      renderForgeSheet();
+      return;
+    }
+    if(upgradeSheetMode==="house"){
+      renderHouseCapacitySheet();
+      return;
+    }
     if(upgradeSheetMode==="towers"){
       upgradeTitle.textContent="Upgrade Towers";
       const capLabel={damage:"+50% max",fireRate:"+50% max",range:"+33% max"};
@@ -1578,6 +2032,7 @@
             gold-=cost;
             towerUpgrades[stat]+=1;
             applyTowerUpgrades();
+            if(isTowerUpgradesMaxed()) toast("Tap a house to house more monster friends.",2800);
             updateHud();
             renderUpgradeSheet();
           });
@@ -1693,6 +2148,7 @@
     if(!paused) return;
     hidePauseOverlay();
     joyReset();
+    applyKeyboardMove();
   }
   function togglePause(){
     if(paused) resumeGame();
@@ -1705,6 +2161,12 @@
   });
   resumeBtn.addEventListener("click",resumeGame);
   window.addEventListener("keydown",(e)=>{
+    if(isMoveKey(e.key)){
+      e.preventDefault();
+      setMoveKey(e.key,true);
+      if(!previewActive && !paused && !isRetreatConfirmOpen()) applyKeyboardMove();
+      return;
+    }
     if(previewActive){
       if(e.key==="Escape"||e.key==="Enter"||e.key===" "){
         e.preventDefault();
@@ -1728,6 +2190,12 @@
     if(e.repeat) return;
     togglePause();
   });
+  window.addEventListener("keyup",(e)=>{
+    if(!isMoveKey(e.key)) return;
+    e.preventDefault();
+    setMoveKey(e.key,false);
+    if(!joyActive) applyKeyboardMove();
+  });
 
   // ===================== GAME SETUP =====================
   function startGame(){
@@ -1743,7 +2211,7 @@
       rate:stats.rate*(1+heroUpgrades2.fireRate*UPGRADE2_STEP_FRACTION.fireRate),
       splash:stats.splash, pierce:stats.pierce, color:stats.color,
       bonusGold:heroUpgrades.goldGain*UPGRADE_STEP.goldGain,
-      x:HERO_START.x, y:HERO_START.y, cd:0, facing:1, distAccum:0, flashTimer:0, blinkSeed:Math.random()*3.2,
+      x:HERO_START.x, y:HERO_START.y, cd:0, facing:1, distAccum:0, flashTimer:0, iframe:0, blinkSeed:Math.random()*3.2,
     };
     camps=CAMP_SPOTS.map(p=>({x:p.x,y:p.y,hp:140,maxHp:140,alive:true,activeGuards:0,spawnTimer:1+Math.random()}));
     houses=[{x:WORKSHOP_SPOT.x,y:WORKSHOP_SPOT.y,type:"workshop",bought:false,residents:[],capacity:HOUSE_CAPACITY,cost:10,affordHint:false,seed:0}];
@@ -1752,11 +2220,15 @@
     recruits=[]; enemies=[]; boss=null; merchant=null; trees=[];
     shots=[]; floats=[]; particles=[];
     phase="night"; phaseTimer=NIGHT_LEN; nightNumber=1; dayNumber=0;
-    totalKills=0; incomeTimer=1; recruitSpawnTimer=1.5; recruitDeniedTimer=0;
+    totalKills=0; incomeTimer=1; recruitSpawnTimer=1.5; desertRecruitSpawnTimer=1.5; recruitDeniedTimer=0; bridgeDeniedTimer=0;
     battleActive=true; battleOver=false;
+    wave7=null; wave7Done=false;
+    forge=null; bridge=null; currentMap="keep"; travel=null;
+    desertHouses=[]; desertRecruits=[]; desertIntroPlayed=false;
     hidePauseOverlay();
     hideRetreatConfirm();
     joyReset();
+    applyKeyboardMove();
     onNightStart();
     toast("Night has already fallen — Wave 1 begins!",2800);
     updateHud();
@@ -1815,6 +2287,7 @@
         for(const h of houses) if(Math.hypot(x-h.x,y-h.y)<45) ok=false;
         if(Math.hypot(x-HERO_START.x,y-HERO_START.y)<30) ok=false;
         if(nearArcherSpot(x,y,40)) ok=false;
+        if(nearForgeOrBridge(x,y,42)) ok=false;
         if(!ok) continue;
         houses.push({x,y,type:"plain",bought:false,residents:[],capacity:HOUSE_CAPACITY,
           cost:additionalHouseCost(residentialHouseCount()), affordHint:false, seed:Math.random()*10});
@@ -1829,6 +2302,7 @@
     enemies=[]; boss=null;
     for(const camp of camps) camp.activeGuards=0;
     recruits=recruits.filter(r=>r.state==="walking");
+    desertRecruitSpawnTimer=1.2;
     const count=2+Math.floor(Math.random()*2);
     for(let i=0;i<count;i++) spawnRecruit();
     merchant=null;
@@ -1841,6 +2315,7 @@
         for(const c of CAMP_SPOTS) if(Math.hypot(x-c.x,y-c.y)<45) ok=false;
         for(const h of houses) if(Math.hypot(x-h.x,y-h.y)<35) ok=false;
         if(nearArcherSpot(x,y,35)) ok=false;
+        if(nearForgeOrBridge(x,y,36)) ok=false;
         if(!ok) continue;
         merchant={x,y,blinkSeed:Math.random()*3.2};
         break;
@@ -1856,6 +2331,7 @@
       let ok=true;
       for(const c of CAMP_SPOTS) if(Math.hypot(x-c.x,y-c.y)<40) ok=false;
       if(nearArcherSpot(x,y,28)) ok=false;
+      if(nearForgeOrBridge(x,y,30)) ok=false;
       if(!ok) continue;
       recruits.push({
         type:pickRecruitType(), x, y, homeX:x, homeY:y, facing:1,
@@ -1874,6 +2350,7 @@
       house.bought=true;
       toast(house.type==="workshop" ? "Outpost built! Tap it to upgrade your weapon." :
         house.type==="towerHouse" ? "Tower keep built! Tap it to upgrade your archer towers." :
+        house.type==="desert" ? "Desert house built! Recruit wandering friends to fill it." :
         "New house built! Recruit monsters to fill it.",2600);
       spawnDeathBurst(house.x,house.y-10,"#d9822e");
       updateHud();
@@ -1899,6 +2376,231 @@
     }
   }
 
+  function unlockDesertRoute(){
+    if(forge) return;
+    forge={x:FORGE_SPOT.x,y:FORGE_SPOT.y,bought:false,cost:FORGE_COST,affordHint:false,seed:4.2};
+    bridge={x:BRIDGE_KEEP_SPOT.x,y:BRIDGE_KEEP_SPOT.y,bought:false,affordHint:false,seed:5.1};
+  }
+  function tryBuyForge(){
+    if(!forge || forge.bought) return;
+    if(gold>=forge.cost){
+      gold-=forge.cost;
+      forge.bought=true;
+      toast("Workshop built! Spend 10 gems to forge a steel bar.",2800);
+      spawnDeathBurst(forge.x,forge.y-10,"#8ec8e8");
+      updateHud();
+    } else if(!forge.affordHint){
+      toast("Need "+forge.cost+"g to build this workshop",1800);
+      forge.affordHint=true;
+    }
+  }
+  function tryForgeSteel(){
+    if(!forge || !forge.bought) return;
+    if(diamonds<GEMS_PER_STEEL){ toast("Need "+GEMS_PER_STEEL+" gems to forge a bar",1800); return; }
+    diamonds-=GEMS_PER_STEEL;
+    steelBars+=1;
+    spawnDeathBurst(forge.x,forge.y-12,"#8a8f99");
+    if(steelBars>=STEEL_PER_BRIDGE && bridge && !bridge.bought){
+      toast("Steel bar forged. You have enough to build the desert bridge.",2800);
+    } else {
+      toast("Forged a steel bar ("+steelBars+")",1800);
+    }
+    updateHud();
+  }
+  function tryBuyBridge(){
+    if(!bridge || bridge.bought) return;
+    if(steelBars>=STEEL_PER_BRIDGE){
+      steelBars-=STEEL_PER_BRIDGE;
+      bridge.bought=true;
+      toast("Bridge built. Cross it by day to reach The Desert.",2800);
+      spawnDeathBurst(bridge.x,bridge.y-8,"#6b5636");
+      updateHud();
+    } else if(!bridge.affordHint){
+      toast("Need "+STEEL_PER_BRIDGE+" steel bars to build the bridge (have "+steelBars+")",2200);
+      bridge.affordHint=true;
+    }
+  }
+  function tryCrossBridge(dest){
+    if(travel) return;
+    if(phase!=="day"){
+      if(bridgeDeniedTimer<=0){
+        toast("Bridges cannot be used at night",1800);
+        bridgeDeniedTimer=3;
+      }
+      return;
+    }
+    if(dest==="desert"){
+      if(!bridge || !bridge.bought) return;
+      startBridgeTravel("desert");
+    } else {
+      startBridgeTravel("keep");
+    }
+  }
+  function startBridgeTravel(dest){
+    closeUpgradeSheet();
+    joyReset();
+    const goingDesert=dest==="desert";
+    travel={
+      dest,
+      t:0,
+      fromX:hero.x,
+      fromY:hero.y,
+      toX:goingDesert?BRIDGE_KEEP_SPOT.x:DESERT_RETURN_SPOT.x,
+      toY:goingDesert?LOGICAL_H+40:-40,
+    };
+    toast(goingDesert?"Crossing into The Desert...":"Returning to the keep...",2200);
+  }
+  function completeBridgeTravel(){
+    const dest=travel.dest;
+    travel=null;
+    currentMap=dest;
+    if(dest==="desert"){
+      hero.x=DESERT_RETURN_SPOT.x;
+      hero.y=DESERT_RETURN_SPOT.y+42;
+      hero.facing=1;
+      ensureDesertHouses();
+      if(!desertIntroPlayed) startDesertOgreArrival();
+    } else {
+      hero.x=BRIDGE_KEEP_SPOT.x;
+      hero.y=BRIDGE_KEEP_SPOT.y-42;
+      hero.facing=1;
+    }
+    hero.x=clamp(hero.x,18,LOGICAL_W-18);
+    hero.y=clamp(hero.y,18,LOGICAL_H-18);
+    updateHud();
+  }
+  function ensureDesertHouses(){
+    if(desertHouses.length) return;
+    for(let i=0;i<DESERT_HOUSE_SPOTS.length;i++){
+      const p=DESERT_HOUSE_SPOTS[i];
+      desertHouses.push({x:p.x,y:p.y,type:"desert",bought:false,residents:[],capacity:HOUSE_CAPACITY,
+        cost:DESERT_HOUSE_COST,affordHint:false,seed:i*1.7+0.4});
+    }
+  }
+  function pickDesertRecruitType(){
+    return DESERT_RECRUIT_TYPES[Math.floor(Math.random()*DESERT_RECRUIT_TYPES.length)];
+  }
+  function spawnDesertRecruit(forcedType,x,y){
+    let sx=x, sy=y;
+    if(sx===undefined){
+      let attempts=0, placed=false;
+      while(attempts<30 && !placed){
+        attempts++;
+        const px=20+Math.random()*(LOGICAL_W-40), py=70+Math.random()*(LOGICAL_H-90);
+        let ok=!nearDesertReturn(px,py,36);
+        for(const h of desertHouses) if(Math.hypot(px-h.x,py-h.y)<30) ok=false;
+        for(const r of desertRecruits) if(Math.hypot(px-r.x,py-r.y)<22) ok=false;
+        if(!ok) continue;
+        sx=px; sy=py; placed=true;
+      }
+      if(!placed) return;
+    }
+    desertRecruits.push({
+      type:forcedType||pickDesertRecruitType(), x:sx, y:sy, homeX:sx, homeY:sy, facing:1,
+      wanderT:Math.random()*10, blinkSeed:Math.random()*3.2,
+      targetX:sx, targetY:sy, retargetTimer:0,
+      state:"wander", house:null, arrived:false, thanksMsg:null,
+    });
+  }
+  function startDesertOgreArrival(){
+    desertIntroPlayed=true;
+    const dests=[{x:118,y:168},{x:168,y:188},{x:92,y:220},{x:200,y:250}];
+    for(let i=0;i<DESERT_INTRO_OGRES;i++){
+      const dest=dests[i];
+      desertRecruits.push({
+        type:"ogre",
+        x:DESERT_RETURN_SPOT.x+(i-1.5)*16,
+        y:DESERT_RETURN_SPOT.y-18,
+        homeX:dest.x, homeY:dest.y, facing:1,
+        wanderT:0, blinkSeed:Math.random()*3.2,
+        targetX:dest.x, targetY:dest.y, retargetTimer:99,
+        state:"running", house:null, arrived:false, thanksMsg:null,
+      });
+    }
+    toast("Ogres pour in from the keep!",2400);
+  }
+  function updateDesertFriends(dt){
+    if(!desertHouses.length && !desertRecruits.length) return;
+    if(phase==="day"){
+      desertRecruitSpawnTimer-=dt;
+      const wanderCount=desertRecruits.filter(r=>r.state!=="walking" && r.state!=="running").length;
+      if(desertRecruitSpawnTimer<=0 && wanderCount<6 && !desertRecruits.some(r=>r.state==="running")){
+        spawnDesertRecruit();
+        desertRecruitSpawnTimer=3+Math.random()*3;
+      }
+    }
+    for(const r of desertRecruits){
+      if(r.state==="running"){
+        const dx=r.targetX-r.x, dy=r.targetY-r.y, d=Math.hypot(dx,dy);
+        if(d<8){
+          r.state="wander";
+          r.homeX=r.x; r.homeY=r.y;
+          r.retargetTimer=1+Math.random()*2;
+        } else {
+          r.x+=dx/d*70*dt; r.y+=dy/d*70*dt;
+          r.facing = dx<0?-1:1;
+        }
+        r.wanderT=(r.wanderT||0)+dt;
+        continue;
+      }
+      if(r.state==="walking"){
+        const dx=r.house.x-r.x, dy=(r.house.y-6)-r.y, d=Math.hypot(dx,dy);
+        if(d<8){ r.arrived=true; }
+        else { r.x+=dx/d*42*dt; r.y+=dy/d*42*dt; r.facing = dx<0?-1:1; }
+        r.wanderT=(r.wanderT||0)+dt;
+        continue;
+      }
+      r.retargetTimer-=dt;
+      if(r.retargetTimer<=0){
+        r.targetX=clamp(r.homeX+(Math.random()-0.5)*80, 20, LOGICAL_W-20);
+        r.targetY=clamp(r.homeY+(Math.random()-0.5)*80, 70, LOGICAL_H-20);
+        r.retargetTimer=2+Math.random()*3;
+      }
+      const dx=r.targetX-r.x, dy=r.targetY-r.y, d=Math.hypot(dx,dy);
+      if(d>2){ r.x+=dx/d*22*dt; r.y+=dy/d*22*dt; r.facing = dx<0?-1:1; }
+      r.wanderT=(r.wanderT||0)+dt;
+    }
+    if(onDesertField()){
+      for(const r of desertRecruits){
+        if(r.state!=="wander") continue;
+        if(Math.hypot(hero.x-r.x,hero.y-r.y)<20){
+          const house=desertHouses.find(h=>h.bought && h.residents.length<h.capacity);
+          if(house){
+            house.residents.push({type:r.type});
+            r.state="walking";
+            r.house=house;
+            r.thanksMsg = Math.random()<0.5 ? "Thanks!" : "You saved me!";
+            spawnDeathBurst(r.x,r.y-8,"#8fff9a");
+          } else if(recruitDeniedTimer<=0){
+            toast("All desert houses are full",1600);
+            recruitDeniedTimer=3;
+          }
+        }
+      }
+    }
+    desertRecruits=desertRecruits.filter(r=>!r.arrived);
+  }
+  function updateBridgeTravel(dt){
+    travel.t+=dt;
+    const u=Math.min(1, travel.t/BRIDGE_TRAVEL_LEN);
+    hero.x=travel.fromX+(travel.toX-travel.fromX)*u;
+    hero.y=travel.fromY+(travel.toY-travel.fromY)*u;
+    hero.facing=1;
+    hero.distAccum+=96*dt;
+    if(travel.t>=BRIDGE_TRAVEL_LEN) completeBridgeTravel();
+  }
+  function forceReturnFromDesert(){
+    if(currentMap==="keep" && !travel) return false;
+    travel=null;
+    currentMap="keep";
+    closeUpgradeSheet();
+    if(hero){
+      hero.x=HERO_START.x;
+      hero.y=HERO_START.y;
+    }
+    return true;
+  }
+
   function residentialHouseCount(){
     return houses.filter(h=>h.type!=="towerHouse").length;
   }
@@ -1910,6 +2612,7 @@
     for(const h of houses) if(Math.hypot(x-h.x,y-h.y)<50) return false;
     if(Math.hypot(x-HERO_START.x,y-HERO_START.y)<40) return false;
     if(nearArcherSpot(x,y,45)) return false;
+    if(nearForgeOrBridge(x,y,46)) return false;
     return true;
   }
   function findTowerHouseSpot(){
@@ -1946,11 +2649,37 @@
       particles.push({x,y,vx:Math.cos(ang)*spd,vy:Math.sin(ang)*spd-40,life:0.5+Math.random()*0.3,color,size:1.6+Math.random()*1.8});
     }
   }
+  function spawnSandBurst(x,y){
+    for(let i=0;i<28;i++){
+      const ang=Math.random()*Math.PI*2, spd=28+Math.random()*110;
+      const color=SAND_COLORS[Math.floor(Math.random()*SAND_COLORS.length)];
+      particles.push({
+        x:x+(Math.random()-0.5)*12,
+        y:y-4-Math.random()*20,
+        vx:Math.cos(ang)*spd,
+        vy:Math.sin(ang)*spd-55,
+        life:0.5+Math.random()*0.55,
+        color, size:1.1+Math.random()*2.6, sand:true,
+      });
+    }
+    for(let i=0;i<10;i++){
+      particles.push({
+        x:x+(Math.random()-0.5)*8,
+        y:y-6+(Math.random()-0.5)*8,
+        vx:(Math.random()-0.5)*36,
+        vy:-8-Math.random()*28,
+        life:0.28+Math.random()*0.28,
+        color:"rgba(226,196,138,0.55)",
+        size:3.5+Math.random()*4.5, sand:true,
+      });
+    }
+  }
 
   function triggerDefeat(){
     hidePauseOverlay();
     hideRetreatConfirm();
     closeUpgradeSheet();
+    wave7=null;
     battleOver=true; battleActive=false;
     document.getElementById("defeatNights").textContent=Math.max(0,nightNumber-1);
     document.getElementById("defeatKills").textContent=totalKills;
@@ -1964,6 +2693,9 @@
     defeatOverlay.classList.remove("show");
     selectOverlay.classList.add("show");
     battleActive=false; battleOver=false;
+    wave7=null; wave7Done=false;
+    forge=null; bridge=null; currentMap="keep"; travel=null;
+    desertHouses=[]; desertRecruits=[]; desertIntroPlayed=false;
     updateHud();
   }
   document.getElementById("defeatRetryBtn").addEventListener("click",()=>{
@@ -2045,13 +2777,14 @@
       gold+=earned;
       if(target.campRef) target.campRef.activeGuards=Math.max(0,target.campRef.activeGuards-1);
       floatText("+"+earned+"g", target.x, target.y-14, "#d9822e");
-      spawnDeathBurst(target.x, target.y, CHAR_STYLES[target.type].body);
+      if(drawingDesert()) spawnSandBurst(target.x, target.y);
+      else spawnDeathBurst(target.x, target.y, CHAR_STYLES[target.type].body);
     }
   }
 
-  function findTargetAt(x,y,range){
+  function findTargetAt(x,y,range,pool){
     let best=null, bestD=Infinity;
-    const pool = boss ? enemies.concat([boss]) : enemies;
+    if(!pool) pool = boss ? enemies.concat([boss]) : enemies;
     for(const en of pool){
       if(en.dead) continue;
       const d=Math.hypot(en.x-x,en.y-y);
@@ -2061,18 +2794,288 @@
   }
   function findHeroTarget(){ return findTargetAt(hero.x,hero.y,hero.range); }
 
+  // ===================== WAVE 7 CASTLE =====================
+  function drawTalkBubble(x,y,text){
+    ctx.font="bold 10px Inter, sans-serif";
+    const w=ctx.measureText(text).width+12;
+    ctx.save();
+    roundRectPath(ctx,x-w/2,y-11,w,18,6);
+    ctx.fillStyle="rgba(255,255,255,0.92)"; ctx.fill();
+    ctx.strokeStyle="rgba(0,0,0,0.25)"; ctx.lineWidth=1; ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x-4,y+7); ctx.lineTo(x+4,y+7); ctx.lineTo(x,y+13); ctx.closePath();
+    ctx.fillStyle="rgba(255,255,255,0.92)"; ctx.fill();
+    ctx.fillStyle="#241d16";
+    ctx.textAlign="center"; ctx.textBaseline="middle";
+    ctx.fillText(text, x, y-1);
+    ctx.restore();
+  }
+
+  function beginWave7(){
+    closeUpgradeSheet();
+    hideRetreatConfirm();
+    enemies=[]; boss=null; shots=[];
+    merchant=null;
+    wave7={
+      stage:"runOff", t:0,
+      fromX:hero.x, fromY:hero.y,
+      arrows:[], friends:[], hallBoss:null, fireTimer:0.6,
+    };
+    toast("The castle gates open — run forth!",2800);
+  }
+  function enterWave7Hallway(){
+    wave7.stage="hallway";
+    wave7.t=0;
+    wave7.arrows=[];
+    wave7.fireTimer=0.4;
+    wave7.hallBoss={x:WAVE7_HALL_BOSS.x,y:WAVE7_HALL_BOSS.y,facing:1,blinkSeed:Math.random()*3.2,walk:0};
+    hero.x=LOGICAL_W/2;
+    hero.y=WAVE7_HALL_HERO_Y;
+    hero.facing=1;
+    hero.distAccum=0;
+    toast("Dodge the arrows!",2200);
+  }
+  function enterWave7RunBack(){
+    wave7.stage="runBack";
+    wave7.t=0;
+    wave7.arrows=[];
+    wave7.hallBoss=null;
+    hero.x=-28;
+    hero.y=HERO_START.y;
+    hero.facing=1;
+  }
+  function enterWave7Congrats(){
+    wave7.stage="congrats";
+    wave7.t=0;
+    hero.x=HERO_START.x;
+    hero.y=HERO_START.y;
+    hero.facing=1;
+    const types=[];
+    for(const h of houses){
+      if(!h.bought) continue;
+      for(const r of h.residents) types.push(r.type);
+    }
+    const extras=["gremlin","ogre","gremlin","ogre","gremlin","ogre","gremlin","ogre"];
+    for(const t of extras) if(types.length<8) types.push(t);
+    const slots=[
+      {x:92,y:260},{x:188,y:258},{x:70,y:210},{x:210,y:208},
+      {x:112,y:168},{x:168,y:166},{x:58,y:278},{x:222,y:272},
+    ];
+    wave7.friends=types.slice(0,8).map((type,i)=>({
+      type, x:slots[i].x, y:slots[i].y,
+      facing:slots[i].x<HERO_START.x?1:-1,
+      seed:i*1.37, blinkSeed:Math.random()*3.2,
+      msg:WAVE7_CONGRATS_MSGS[i%WAVE7_CONGRATS_MSGS.length],
+    }));
+  }
+  function finishWave7(){
+    wave7=null;
+    wave7Done=true;
+    hero.x=HERO_START.x;
+    hero.y=HERO_START.y;
+    hero.facing=1;
+    phase="day";
+    phaseTimer=DAY_LEN;
+    dayNumber+=1;
+    hero.hp=hero.maxHp;
+    unlockDesertRoute();
+    onDayStart();
+    toast("You return in triumph. Full houses now yield diamonds.",3200);
+    updateHud();
+  }
+  function fireWave7Arrow(){
+    const b=wave7.hallBoss;
+    if(!b) return;
+    const aimX=hero.x+(Math.random()-0.5)*28;
+    const aimY=hero.y-16;
+    const dx=aimX-b.x, dy=aimY-(b.y-22);
+    const d=Math.hypot(dx,dy)||1;
+    const spd=105+Math.random()*45+wave7.t*0.6;
+    wave7.arrows.push({
+      x:b.x, y:b.y-22, vx:dx/d*spd, vy:dy/d*spd,
+      rot:Math.atan2(dy,dx)+Math.PI/2, hit:false, life:3.2,
+    });
+  }
+  function updateWave7RunOff(dt){
+    const u=Math.min(1, wave7.t/WAVE7_RUN_OFF_LEN);
+    hero.x=wave7.fromX+(LOGICAL_W+50-wave7.fromX)*u;
+    hero.y=wave7.fromY;
+    hero.facing=1;
+    hero.distAccum+=110*dt;
+    if(wave7.t>=WAVE7_RUN_OFF_LEN) enterWave7Hallway();
+  }
+  function updateWave7Hallway(dt){
+    hero.x=clamp(hero.x+joyVec.x*hero.speed*dt, 56, LOGICAL_W-56);
+    hero.y=WAVE7_HALL_HERO_Y;
+    const moveMag=Math.abs(joyVec.x);
+    if(moveMag>0.15){
+      hero.distAccum+=hero.speed*dt;
+      hero.facing=joyVec.x<0?-1:1;
+    }
+    const b=wave7.hallBoss;
+    if(b){
+      b.walk+=dt;
+      b.facing=hero.x<b.x?-1:1;
+    }
+    const interval=Math.max(0.42, 0.88-wave7.t*0.007);
+    wave7.fireTimer-=dt;
+    if(wave7.fireTimer<=0){
+      fireWave7Arrow();
+      if(Math.random()<0.35) fireWave7Arrow();
+      wave7.fireTimer=interval;
+    }
+    for(const a of wave7.arrows){
+      a.x+=a.vx*dt; a.y+=a.vy*dt; a.life-=dt;
+      if(a.hit) continue;
+      const hx=hero.x, hy=hero.y-18;
+      if(Math.hypot(a.x-hx,a.y-hy)<14){
+        a.hit=true; a.life=0;
+        if((hero.iframe||0)>0) continue;
+        hero.hp-=WAVE7_ARROW_DMG;
+        hero.iframe=WAVE7_IFRAME;
+        hero.flashTimer=0.15;
+        floatText("-"+WAVE7_ARROW_DMG, hero.x, hero.y-30, "#c8404f");
+        if(hero.hp<=0){ hero.hp=0; triggerDefeat(); return; }
+      }
+    }
+    wave7.arrows=wave7.arrows.filter(a=>a.life>0 && a.y<LOGICAL_H+24);
+    for(const f of floats){ f.life-=dt; f.y-=18*dt; }
+    floats=floats.filter(f=>f.life>0);
+    if(wave7.t>=WAVE7_HALLWAY_LEN) enterWave7RunBack();
+  }
+  function updateWave7RunBack(dt){
+    const u=Math.min(1, wave7.t/WAVE7_RUN_BACK_LEN);
+    hero.x=-28+(HERO_START.x+28)*u;
+    hero.y=HERO_START.y;
+    hero.facing=1;
+    hero.distAccum+=110*dt;
+    if(wave7.t>=WAVE7_RUN_BACK_LEN) enterWave7Congrats();
+  }
+  function updateWave7Congrats(){
+    hero.x=HERO_START.x;
+    hero.y=HERO_START.y;
+    if(wave7.t>=WAVE7_CONGRATS_LEN) finishWave7();
+  }
+  function updateWave7(dt){
+    simTime+=dt;
+    if(hero.flashTimer>0) hero.flashTimer=Math.max(0,hero.flashTimer-dt);
+    if(hero.iframe>0) hero.iframe=Math.max(0,hero.iframe-dt);
+    wave7.t+=dt;
+    if(wave7.stage==="runOff") updateWave7RunOff(dt);
+    else if(wave7.stage==="hallway") updateWave7Hallway(dt);
+    else if(wave7.stage==="runBack") updateWave7RunBack(dt);
+    else updateWave7Congrats(dt);
+    if(wave7) updateHud();
+  }
+  function drawHallwayScene(){
+    ctx.fillStyle="#16121c";
+    ctx.fillRect(0,0,LOGICAL_W,LOGICAL_H);
+    ctx.fillStyle="#2a2434";
+    ctx.fillRect(0,0,LOGICAL_W,78);
+    ctx.fillStyle="#3a3346";
+    ctx.beginPath(); ctx.moveTo(0,78); ctx.lineTo(52,96); ctx.lineTo(52,LOGICAL_H); ctx.lineTo(0,LOGICAL_H); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(LOGICAL_W,78); ctx.lineTo(LOGICAL_W-52,96); ctx.lineTo(LOGICAL_W-52,LOGICAL_H); ctx.lineTo(LOGICAL_W,LOGICAL_H); ctx.fill();
+    ctx.fillStyle="#2c2638";
+    ctx.fillRect(52,78,LOGICAL_W-104,210);
+    for(const wx of [88,140,192]){
+      const glow=0.18+0.08*Math.sin(simTime*2.2+wx);
+      ctx.fillStyle="#1a2044";
+      ctx.fillRect(wx-11,108,22,38);
+      ctx.fillStyle="rgba(170,190,255,"+glow+")";
+      ctx.fillRect(wx-11,108,22,38);
+    }
+    ctx.fillStyle="#5a4a38";
+    ctx.fillRect(96,248,88,16);
+    ctx.fillStyle="#4a3c2e";
+    ctx.fillRect(108,236,64,12);
+    ctx.fillStyle="#4a4036";
+    ctx.fillRect(52,264,LOGICAL_W-104,LOGICAL_H-264);
+    ctx.strokeStyle="rgba(0,0,0,0.22)"; ctx.lineWidth=1;
+    for(let y=264;y<LOGICAL_H;y+=16){
+      ctx.beginPath(); ctx.moveTo(52,y); ctx.lineTo(LOGICAL_W-52,y); ctx.stroke();
+    }
+    const flicker=0.55+0.35*Math.sin(simTime*7);
+    for(const tx of [62, LOGICAL_W-62]){
+      ctx.fillStyle="#6b3a16";
+      ctx.fillRect(tx-2,140,4,18);
+      ctx.beginPath(); ctx.arc(tx,138,6,0,Math.PI*2);
+      ctx.fillStyle="rgba(255,170,60,"+flicker+")"; ctx.fill();
+    }
+    ctx.fillStyle="rgba(233,223,196,0.85)";
+    ctx.font="bold 11px Inter, sans-serif";
+    ctx.textAlign="center"; ctx.textBaseline="middle";
+    ctx.fillText("DODGE THE ARROWS", LOGICAL_W/2, 22);
+    const left=Math.max(0, Math.ceil(WAVE7_HALLWAY_LEN-wave7.t));
+    ctx.font="bold 13px Inter, sans-serif";
+    ctx.fillStyle="#ffe08a";
+    ctx.fillText(left+"s", LOGICAL_W/2, 40);
+  }
+  function drawHallArrow(a){
+    ctx.save();
+    ctx.translate(a.x,a.y);
+    ctx.rotate(a.rot);
+    ctx.strokeStyle="#e8dfc4"; ctx.lineWidth=2; ctx.lineCap="round";
+    ctx.beginPath(); ctx.moveTo(0,-9); ctx.lineTo(0,8); ctx.stroke();
+    ctx.fillStyle="#c8404f";
+    ctx.beginPath(); ctx.moveTo(0,11); ctx.lineTo(-3.5,4); ctx.lineTo(3.5,4); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle="#6b4a2a"; ctx.lineWidth=1.6;
+    ctx.beginPath(); ctx.moveTo(-3,-8); ctx.lineTo(3,-8); ctx.stroke();
+    ctx.restore();
+  }
+  function drawWave7Hallway(){
+    drawHallwayScene();
+    const b=wave7.hallBoss;
+    if(b){
+      ctx.save();
+      ctx.translate(b.x,b.y);
+      if(b.facing<0) ctx.scale(-1,1);
+      drawCharacter(ctx,"archer",20,b.walk*1.2,0.35,simTime+b.blinkSeed);
+      ctx.restore();
+    }
+    if(hero) drawHeroEntity();
+    for(const a of wave7.arrows) drawHallArrow(a);
+    drawFloats();
+    ctx.fillStyle="rgba(12,10,18,0.28)";
+    ctx.fillRect(0,0,LOGICAL_W,LOGICAL_H);
+  }
+  function drawWave7Friends(){
+    if(!wave7 || !wave7.friends) return;
+    for(const f of wave7.friends){
+      const s=BASE_SCALE[f.type];
+      const jump=Math.abs(Math.sin(simTime*6.2+f.seed))*12;
+      const y=f.y-jump;
+      ctx.beginPath();
+      ctx.ellipse(f.x, y+s*0.05, s*0.5, s*0.16, 0,0,Math.PI*2);
+      ctx.fillStyle="rgba(0,0,0,0.32)"; ctx.fill();
+      ctx.save();
+      ctx.translate(f.x,y);
+      if(f.facing<0) ctx.scale(-1,1);
+      drawCharacter(ctx,f.type,s,simTime*2.4+f.seed,0.9,simTime+f.blinkSeed);
+      ctx.restore();
+      drawTalkBubble(f.x, y-s*2.05, f.msg);
+    }
+  }
+
   // ===================== UPDATE =====================
   function update(dt){
     if(paused) return;
-    simTime+=dt;
     if(!battleActive || battleOver) return;
+    if(wave7){
+      updateWave7(dt);
+      return;
+    }
+    simTime+=dt;
 
-    hero.x=clamp(hero.x+joyVec.x*hero.speed*dt, 18, LOGICAL_W-18);
-    hero.y=clamp(hero.y+joyVec.y*hero.speed*dt, 18, LOGICAL_H-18);
-    const moveMag=Math.hypot(joyVec.x,joyVec.y);
-    if(moveMag>0.15){
-      hero.distAccum+=hero.speed*dt;
-      hero.facing = joyVec.x<-0.1 ? -1 : (joyVec.x>0.1 ? 1 : hero.facing);
+    if(travel){
+      updateBridgeTravel(dt);
+    } else {
+      hero.x=clamp(hero.x+joyVec.x*hero.speed*dt, 18, LOGICAL_W-18);
+      hero.y=clamp(hero.y+joyVec.y*hero.speed*dt, 18, LOGICAL_H-18);
+      const moveMag=Math.hypot(joyVec.x,joyVec.y);
+      if(moveMag>0.15){
+        hero.distAccum+=hero.speed*dt;
+        hero.facing = joyVec.x<-0.1 ? -1 : (joyVec.x>0.1 ? 1 : hero.facing);
+      }
     }
     if(hero.flashTimer>0) hero.flashTimer=Math.max(0,hero.flashTimer-dt);
 
@@ -2080,9 +3083,14 @@
     phaseTimer-=dt;
     if(phaseTimer<=0){
       if(phase==="day"){
+        const fromDesert=forceReturnFromDesert();
         phase="night"; nightNumber+=1; phaseTimer=NIGHT_LEN;
         onNightStart();
-        if(nightNumber===ARCHER_TOWER_UNLOCK_NIGHT) toast("🌙 Night "+nightNumber+" — archer towers can be built!",2800);
+        if(nightNumber===WAVE7_NIGHT && !wave7Done){
+          beginWave7();
+          return;
+        } else if(fromDesert) toast("Night falls — you hurry home. Wave "+nightNumber+" begins!",2800);
+        else if(nightNumber===ARCHER_TOWER_UNLOCK_NIGHT) toast("🌙 Night "+nightNumber+" — archer towers can be built!",2800);
         else toast("🌙 Night falls — Wave "+nightNumber+" begins!",2600);
       } else {
         phase="day"; phaseTimer=DAY_LEN; dayNumber+=1;
@@ -2092,55 +3100,58 @@
       }
     }
 
+    const keep=onKeepField();
     const diff=nightDifficulty(Math.max(1,nightNumber));
-    for(const camp of camps) trySpawnFromCamp(camp,dt,diff);
+    if(keep){
+      for(const camp of camps) trySpawnFromCamp(camp,dt,diff);
 
-    for(const en of enemies){
-      if(en.dead) continue;
-      if(en.flashTimer>0) en.flashTimer=Math.max(0,en.flashTimer-dt);
-      en.wanderT=(en.wanderT||0)+dt;
-      const dHero=Math.hypot(hero.x-en.x,hero.y-en.y);
-      if(dHero>en.atkRange*0.9){
-        const dx=(hero.x-en.x)/dHero, dy=(hero.y-en.y)/dHero;
-        en.x+=dx*en.speed*dt; en.y+=dy*en.speed*dt;
-        en.facing = dx<0?-1:1;
-      } else {
-        en.cd-=dt;
-        if(en.cd<=0){
-          en.cd=1/en.rate;
-          hero.hp-=en.dmg; hero.flashTimer=0.15;
-          floatText("-"+en.dmg, hero.x, hero.y-30, "#c8404f");
-          if(hero.hp<=0){ hero.hp=0; triggerDefeat(); }
+      for(const en of enemies){
+        if(en.dead) continue;
+        if(en.flashTimer>0) en.flashTimer=Math.max(0,en.flashTimer-dt);
+        en.wanderT=(en.wanderT||0)+dt;
+        const dHero=Math.hypot(hero.x-en.x,hero.y-en.y);
+        if(dHero>en.atkRange*0.9){
+          const dx=(hero.x-en.x)/dHero, dy=(hero.y-en.y)/dHero;
+          en.x+=dx*en.speed*dt; en.y+=dy*en.speed*dt;
+          en.facing = dx<0?-1:1;
+        } else {
+          en.cd-=dt;
+          if(en.cd<=0){
+            en.cd=1/en.rate;
+            hero.hp-=en.dmg; hero.flashTimer=0.15;
+            floatText("-"+en.dmg, hero.x, hero.y-30, "#c8404f");
+            if(hero.hp<=0){ hero.hp=0; triggerDefeat(); }
+          }
         }
       }
-    }
 
-    if(boss && !boss.dead){
-      if(boss.flashTimer>0) boss.flashTimer=Math.max(0,boss.flashTimer-dt);
-      const dHero=Math.hypot(hero.x-boss.x,hero.y-boss.y);
-      if(dHero>boss.atkRange*0.9){
-        const dx=(hero.x-boss.x)/dHero, dy=(hero.y-boss.y)/dHero;
-        boss.x+=dx*boss.speed*dt; boss.y+=dy*boss.speed*dt;
-        boss.facing = dx<0?-1:1;
-      } else {
-        boss.cd-=dt;
-        if(boss.cd<=0){
-          boss.cd=1/boss.rate;
-          hero.hp-=boss.dmg; hero.flashTimer=0.15;
-          floatText("-"+boss.dmg, hero.x, hero.y-30, "#c8404f");
-          if(hero.hp<=0){ hero.hp=0; triggerDefeat(); }
+      if(boss && !boss.dead){
+        if(boss.flashTimer>0) boss.flashTimer=Math.max(0,boss.flashTimer-dt);
+        const dHero=Math.hypot(hero.x-boss.x,hero.y-boss.y);
+        if(dHero>boss.atkRange*0.9){
+          const dx=(hero.x-boss.x)/dHero, dy=(hero.y-boss.y)/dHero;
+          boss.x+=dx*boss.speed*dt; boss.y+=dy*boss.speed*dt;
+          boss.facing = dx<0?-1:1;
+        } else {
+          boss.cd-=dt;
+          if(boss.cd<=0){
+            boss.cd=1/boss.rate;
+            hero.hp-=boss.dmg; hero.flashTimer=0.15;
+            floatText("-"+boss.dmg, hero.x, hero.y-30, "#c8404f");
+            if(hero.hp<=0){ hero.hp=0; triggerDefeat(); }
+          }
         }
       }
-    }
 
-    if(hero.cd>0) hero.cd-=dt;
-    if(hero.cd<=0){
-      const target=findHeroTarget();
-      if(target){
-        hero.cd=1/hero.rate;
-        const tx=target.x, ty=target.y-10;
-        shots.push({x1:hero.x,y1:hero.y-14,x2:tx,y2:ty,life:0.15,maxLife:0.15,color:hero.color});
-        applyHeroDamage(target);
+      if(hero.cd>0) hero.cd-=dt;
+      if(hero.cd<=0){
+        const target=findHeroTarget();
+        if(target){
+          hero.cd=1/hero.rate;
+          const tx=target.x, ty=target.y-10;
+          shots.push({x1:hero.x,y1:hero.y-14,x2:tx,y2:ty,life:0.15,maxLife:0.15,color:hero.color});
+          applyHeroDamage(target);
+        }
       }
     }
     enemies=enemies.filter(en=>!en.dead);
@@ -2173,6 +3184,7 @@
       }
       for(const r of recruits){
         if(r.state!=="wander") continue;
+        if(!onKeepField()) continue;
         if(Math.hypot(hero.x-r.x,hero.y-r.y) < 20){
           const house=houses.find(h=>h.bought && h.residents.length<h.capacity);
           if(house){
@@ -2189,26 +3201,56 @@
       }
       recruits=recruits.filter(r=>!r.arrived);
     }
+    updateDesertFriends(dt);
     if(recruitDeniedTimer>0) recruitDeniedTimer-=dt;
+    if(bridgeDeniedTimer>0) bridgeDeniedTimer-=dt;
 
-    // ---- houses: buy on approach ----
-    for(const house of houses){
-      if(!house.bought){
-        const d=Math.hypot(hero.x-house.x,hero.y-house.y);
-        const reach=house.type==="towerHouse"?28:22;
-        const resetAt=house.type==="towerHouse"?40:34;
-        if(d<reach) tryBuyHouse(house);
-        else if(d>resetAt) house.affordHint=false;
+    // ---- houses / forge / bridge: buy on approach ----
+    if(onKeepField()){
+      for(const house of houses){
+        if(!house.bought){
+          const d=Math.hypot(hero.x-house.x,hero.y-house.y);
+          const reach=house.type==="towerHouse"?28:22;
+          const resetAt=house.type==="towerHouse"?40:34;
+          if(d<reach) tryBuyHouse(house);
+          else if(d>resetAt) house.affordHint=false;
+        }
       }
+      if(forge && !forge.bought){
+        const d=Math.hypot(hero.x-forge.x,hero.y-forge.y);
+        if(d<22) tryBuyForge();
+        else if(d>34) forge.affordHint=false;
+      }
+      if(bridge){
+        const d=Math.hypot(hero.x-bridge.x,hero.y-bridge.y);
+        if(!bridge.bought){
+          if(d<24) tryBuyBridge();
+          else if(d>36) bridge.affordHint=false;
+        } else if(d<22){
+          tryCrossBridge("desert");
+        }
+      }
+    } else if(currentMap==="desert" && !travel){
+      for(const house of desertHouses){
+        if(!house.bought){
+          const d=Math.hypot(hero.x-house.x,hero.y-house.y);
+          if(d<22) tryBuyHouse(house);
+          else if(d>34) house.affordHint=false;
+        }
+      }
+      const d=Math.hypot(hero.x-DESERT_RETURN_SPOT.x,hero.y-DESERT_RETURN_SPOT.y);
+      if(d<22) tryCrossBridge("keep");
     }
 
     // ---- archer towers: buy on approach + fire at night ----
     if(archerTowersUnlocked()){
       for(const tower of archerTowers){
         if(!tower.bought){
-          const d=Math.hypot(hero.x-tower.x,hero.y-tower.y);
-          if(d<22) tryBuyTower(tower);
-          else if(d>34) tower.affordHint=false;
+          if(onKeepField()){
+            const d=Math.hypot(hero.x-tower.x,hero.y-tower.y);
+            if(d<22) tryBuyTower(tower);
+            else if(d>34) tower.affordHint=false;
+          }
         } else if(phase==="night"){
           if(tower.cd>0) tower.cd-=dt;
           if(tower.cd<=0){
@@ -2236,11 +3278,22 @@
     if(incomeTimer<=0){
       incomeTimer=1;
       let income=0;
+      let gemIncome=0;
       for(const house of houses) if(house.bought) income+=house.residents.length;
+      for(const house of desertHouses) if(house.bought) income+=house.residents.length;
       for(const t of trees) if(t.mature) income+=TREE_INCOME;
+      if(wave7Done){
+        for(const house of houses){
+          if(isResidentialHouse(house) && house.bought && house.residents.length>=10) gemIncome+=1;
+        }
+      }
       if(income>0){
         gold+=income;
         floatText("+"+income+"g", hero.x, hero.y-40, "#ffe08a");
+      }
+      if(gemIncome>0){
+        diamonds+=gemIncome;
+        floatText("+"+gemIncome+"◆", hero.x+18, hero.y-52, "#8ec8e8");
       }
     }
 
@@ -2248,7 +3301,7 @@
     shots=shots.filter(s=>s.life>0);
     for(const f of floats){ f.life-=dt; f.y-=18*dt; }
     floats=floats.filter(f=>f.life>0);
-    for(const p of particles){ p.vy+=220*dt; p.x+=p.vx*dt; p.y+=p.vy*dt; p.life-=dt; }
+    for(const p of particles){ p.vy+=(p.sand?310:220)*dt; p.x+=p.vx*dt; p.y+=p.vy*dt; p.life-=dt; }
     particles=particles.filter(p=>p.life>0);
 
     updateHud();
@@ -2256,8 +3309,24 @@
 
   function updateHud(){
     goldVal.textContent=gold;
+    gemVal.textContent=diamonds;
+    gemStat.classList.toggle("show", !!wave7Done);
+    gameTitle.textContent=drawingDesert()?"THE DESERT":"MONSTER KEEP";
     heroHpVal.textContent= hero ? Math.max(0,Math.round(hero.hp))+"/"+hero.maxHp : "0/0";
-    waveEl.textContent="Wave: "+nightNumber;
+    waveEl.textContent=drawingDesert()?"The Desert":("Wave: "+nightNumber);
+    if(wave7){
+      phaseStat.classList.add("night");
+      phaseIcon.innerHTML='<circle cx="8" cy="8" r="5.5" fill="#3a3f6b" stroke="#8fa9ff" stroke-width="0.8"/><circle cx="10" cy="6.5" r="4.3" fill="#1b1712"/>';
+      if(wave7.stage==="runOff") phaseVal.textContent="Castle";
+      else if(wave7.stage==="hallway") phaseVal.textContent="Dodge "+Math.max(0,Math.ceil(WAVE7_HALLWAY_LEN-wave7.t))+"s";
+      else if(wave7.stage==="runBack") phaseVal.textContent="Return";
+      else phaseVal.textContent="Victory";
+      return;
+    }
+    if(travel){
+      phaseVal.textContent=travel.dest==="desert"?"Crossing":"Returning";
+      return;
+    }
     const secs=Math.max(0,Math.ceil(phaseTimer));
     if(phase==="day"){
       phaseVal.textContent="Day "+secs+"s";
@@ -2279,6 +3348,7 @@
     ctx.save();
     ctx.translate(hero.x,hero.y);
     if(hero.facing<0) ctx.scale(-1,1);
+    if((hero.iframe||0)>0 && Math.floor(simTime*16)%2===0) ctx.globalAlpha=0.4;
     const phase2=hero.distAccum/9;
     drawCharacter(ctx, hero.type, s, phase2, 1, simTime+hero.blinkSeed);
     if(hero.flashTimer>0){
@@ -2338,7 +3408,13 @@
     for(const p of particles){
       ctx.globalAlpha=Math.max(0,p.life/0.8);
       ctx.fillStyle=p.color;
-      ctx.fillRect(p.x-p.size/2,p.y-p.size/2,p.size,p.size);
+      if(p.sand){
+        ctx.beginPath();
+        ctx.ellipse(p.x, p.y, p.size*0.55, p.size*0.38, 0, 0, Math.PI*2);
+        ctx.fill();
+      } else {
+        ctx.fillRect(p.x-p.size/2,p.y-p.size/2,p.size,p.size);
+      }
     }
     ctx.globalAlpha=1;
   }
@@ -2362,19 +3438,41 @@
     }
     ctx.fillStyle=vignetteGrad;
     ctx.fillRect(0,0,LOGICAL_W,LOGICAL_H);
-    if(phase==="night"){
+    if(phase==="night" && !(wave7 && wave7.stage==="congrats")){
       ctx.fillStyle="rgba(20,25,60,0.22)";
       ctx.fillRect(0,0,LOGICAL_W,LOGICAL_H);
     }
   }
 
+  function renderDesert(){
+    ctx.clearRect(0,0,LOGICAL_W,LOGICAL_H);
+    ctx.drawImage(desertCanvas,0,0);
+    drawDesertReturnBridge(ctx,simTime);
+    for(const house of desertHouses) drawHouse(ctx,house,simTime);
+    const drawables=[];
+    if(hero) drawables.push({y:hero.y,kind:"hero"});
+    for(const r of desertRecruits) drawables.push({y:r.y,kind:"rec",ref:r});
+    drawables.sort((a,b)=>a.y-b.y);
+    for(const d of drawables){
+      if(d.kind==="hero") drawHeroEntity();
+      else drawRecruit(ctx,d.ref,simTime);
+    }
+    drawShots();
+    drawParticles();
+    drawFloats();
+  }
+
   function render(){
     if(previewActive){ renderPreview(); return; }
+    if(wave7 && wave7.stage==="hallway"){ drawWave7Hallway(); return; }
+    if(drawingDesert()){ renderDesert(); return; }
     ctx.clearRect(0,0,LOGICAL_W,LOGICAL_H);
     ctx.drawImage(bgCanvas,0,0);
 
-    for(const camp of camps) drawCamp(ctx,camp,simTime,phase==="night");
+    for(const camp of camps) drawCamp(ctx,camp,simTime,phase==="night" && !(wave7 && wave7.stage==="congrats"));
     for(const house of houses) drawHouse(ctx,house,simTime);
+    if(forge) drawForgeWorkshop(ctx,forge,simTime);
+    if(bridge) drawKeepBridge(ctx,bridge,simTime);
     if(archerTowersUnlocked()){
       for(const tower of archerTowers) drawArcherTower(ctx,tower,simTime);
     }
@@ -2392,6 +3490,7 @@
         else drawEnemyEntity(d.ref);
       }
     }
+    if(wave7 && wave7.stage==="congrats") drawWave7Friends();
 
     drawShots();
     drawParticles();
@@ -2412,6 +3511,7 @@
   }
 
   prerenderBackground();
+  prerenderDesert();
   updateHud();
   setupPreviewAct(0);
   requestAnimationFrame(loop);
