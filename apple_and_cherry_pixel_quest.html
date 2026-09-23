@@ -1,39 +1,156 @@
-<div>
-<h2 class="sr-only">An interactive pixel-art game where you control Levi and Amelia as they battle glowing bats and slimes together, gaining new powers at wave 3, a slime boss at wave 9, a wall-bouncing spell at wave 15, a castle setting with knights and horses at wave 20, and a colossal knight boss at wave 25.</h2>
-<div id="gameWrap" style="position:relative; width:100%; aspect-ratio:16/9; background:#1b3a10; border-radius:var(--radius); overflow:hidden; border:0.5px solid var(--border);">
-<canvas id="game" style="position:absolute; inset:0; width:100%; height:100%; image-rendering:pixelated; display:block;"></canvas>
-<div id="heartsOverlay" style="position:absolute; top:6px; left:6px; display:flex; gap:2px; z-index:1; background:rgba(0,0,0,0.35); padding:3px 6px; border-radius:var(--radius);"></div>
-<div id="titleOverlay" style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; background:rgba(0,0,0,0.55); color:#fff; text-align:center; z-index:2; padding:0 20px;">
-<div style="font-size:18px; font-weight:500;">The adventures of Levi and Amelia</div>
-<div style="font-size:13px; color:#ddd; max-width:260px;">Clear every wave to advance. New powers unlock as you go, a boss at wave 9, a wall-bouncing spell at wave 15, a castle at wave 20, and a colossal knight boss at wave 25.</div>
-<button id="startBtn" style="background:#fff; color:#111; border:none; padding:10px 22px; border-radius:var(--radius); font-weight:500; font-size:14px; cursor:pointer;">Start adventure</button>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>Apple &amp; Cherry Pixel Quest</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --void:#0b100a;
+    --panel:#171b12;
+    --panel2:#1f2416;
+    --stone:#3a3024;
+    --stone-light:#4c3f30;
+    --blood:#9c2b3a;
+    --blood-bright:#c8404f;
+    --toxic:#7fae4a;
+    --toxic-dim:#5c7f38;
+    --torch:#d9822e;
+    --bone:#e9dfc4;
+    --bone-dim:#a89f8a;
+    --cherry:#d4537e;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;height:100%;background:var(--void);overflow:hidden;}
+  body{
+    font-family:'Inter',system-ui,sans-serif;
+    color:var(--bone);
+    display:flex;
+    flex-direction:column;
+    height:100%;
+    background:radial-gradient(ellipse at 50% 0%, #1a2a14 0%, var(--void) 60%);
+    user-select:none;
+  }
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
+  .title-row{display:flex; align-items:baseline; justify-content:space-between; padding:10px 12px 4px; flex-shrink:0;}
+  .game-title{font-family:'Cinzel',serif; font-weight:800; font-size:19px; letter-spacing:0.5px; color:var(--torch); text-shadow:0 0 12px rgba(217,130,46,0.35); margin:0;}
+  .wave-lbl{font-size:11px; color:var(--bone-dim);}
+  .hud{display:flex; gap:8px; padding:0 12px 8px; flex-shrink:0;}
+  .stat{flex:1; background:linear-gradient(180deg,var(--panel2),var(--panel)); border:1px solid var(--stone-light); border-radius:8px; padding:6px 8px; display:flex; align-items:center; gap:6px;}
+  .stat svg{width:16px; height:16px; flex-shrink:0;}
+  .stat .val{font-weight:700; font-size:13.5px; font-variant-numeric:tabular-nums;}
+  .stat .lbl{font-size:9px; color:var(--bone-dim); text-transform:uppercase; letter-spacing:0.4px; margin-left:2px;}
+  .stat.score .val{color:var(--torch);}
+  .stat.lives .val{color:var(--blood-bright);}
+  .stat.buff,.stat.bounce{display:none;}
+  .stat.buff.show,.stat.bounce.show{display:flex;}
+  .stat.buff .val{color:var(--toxic);}
+  .stat.bounce .val{color:#8fa9ff;}
+  .board-wrap{flex:1; display:flex; align-items:center; justify-content:center; min-height:0; position:relative; padding:4px 8px;}
+  #boardInner{
+    position:relative;
+    width:min(100%, calc((100vh - 230px) * 16 / 9));
+    max-width:880px;
+    aspect-ratio:16/9;
+  }
+  #game{
+    position:absolute; inset:0; width:100%; height:100%;
+    display:block;
+    image-rendering:pixelated;
+    image-rendering:crisp-edges;
+    background:#1b3a10; border-radius:10px; border:2px solid var(--stone-light);
+    box-shadow:0 8px 24px rgba(0,0,0,0.5), inset 0 0 40px rgba(0,0,0,0.25);
+    touch-action:none;
+  }
+  .controls-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 12px 12px; flex-shrink:0; flex-wrap:wrap;}
+  .hint{font-size:11px; color:var(--bone-dim); max-width:240px; line-height:1.45;}
+  .actions{display:flex; gap:14px; align-items:center; margin-left:auto;}
+  .dpad-grid{display:grid; grid-template-columns:repeat(3,36px); grid-template-rows:repeat(3,36px); gap:4px;}
+  .btn{font-family:'Inter',sans-serif; font-weight:700; font-size:13px; border:none; border-radius:8px; padding:10px 14px; cursor:pointer; color:var(--bone); background:var(--stone); border:1px solid var(--stone-light);}
+  .btn:active{transform:scale(0.97);}
+  .btn.dpad{padding:0; font-size:16px;}
+  .btn.primary{background:linear-gradient(180deg,var(--toxic),var(--toxic-dim)); color:#12190a; box-shadow:0 3px 0 #3f5a26;}
+  .atk-col{display:flex; flex-direction:column; gap:4px;}
+  .atk-col .btn{padding:8px 12px; font-size:12px; min-width:78px;}
+  #autoBtn.on{color:var(--toxic); font-weight:700;}
+  .overlay{position:fixed; inset:0; background:rgba(6,4,8,0.85); display:none; align-items:center; justify-content:center; z-index:30; padding:20px;}
+  .overlay.show{display:flex;}
+  .overlay-card{background:linear-gradient(180deg,var(--panel2),var(--panel)); border:2px solid var(--stone-light); border-radius:16px; padding:26px 22px; text-align:center; max-width:340px; width:100%;}
+  .overlay-card h1,.overlay-card h2{font-family:'Cinzel',serif; color:var(--torch); margin:0 0 8px; font-size:22px;}
+  .overlay-card h2{color:var(--blood-bright);}
+  .overlay-card p{font-size:13px; color:var(--bone-dim); margin:0 0 18px; line-height:1.5;}
+  .overlay-card .stat-line{font-size:14px; margin-bottom:14px;}
+  .overlay-card .stat-line b{color:var(--torch);}
+  .overlay-card .btn.primary{width:100%; padding:12px; font-size:14px;}
+</style>
+</head>
+<body>
+<h2 class="sr-only">An interactive pixel-art game where you control Apple and Cherry as they battle glowing bats and slimes together, gaining new powers at wave 3, a slime boss at wave 9, a wall-bouncing spell at wave 15, a castle setting with knights and horses at wave 20, and a colossal knight boss at wave 25.</h2>
+
+<div class="title-row">
+  <p class="game-title">APPLE &amp; CHERRY</p>
+  <div class="wave-lbl">Wave: <span id="wave">1</span></div>
 </div>
-<div id="overOverlay" style="position:absolute; inset:0; display:none; flex-direction:column; align-items:center; justify-content:center; gap:10px; background:rgba(0,0,0,0.65); color:#fff; text-align:center; z-index:2;">
-<div style="font-size:18px; font-weight:500;">Game over</div>
-<div id="finalScore" style="font-size:14px; color:#ddd;"></div>
-<button id="restartBtn" style="background:#fff; color:#111; border:none; padding:10px 22px; border-radius:var(--radius); font-weight:500; font-size:14px; cursor:pointer;">Try again</button>
+
+<div class="hud">
+  <div class="stat lives">
+    <svg viewBox="0 0 16 16"><path d="M8 13.5 C4 10.8 1.5 8.4 1.5 5.8 C1.5 3.7 3.1 2.4 4.9 2.4 C6.1 2.4 7.2 3 8 4.1 C8.8 3 9.9 2.4 11.1 2.4 C12.9 2.4 14.5 3.7 14.5 5.8 C14.5 8.4 12 10.8 8 13.5 Z" fill="#c8404f" stroke="#7a1f28" stroke-width="0.8"/></svg>
+    <span class="val" id="hpVal">5/5</span>
+  </div>
+  <div class="stat score">
+    <svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="#d9822e" stroke="#8a5518" stroke-width="1"/><circle cx="8" cy="8" r="4" fill="none" stroke="#8a5518" stroke-width="0.8"/></svg>
+    <span class="val" id="score">0</span>
+    <span class="lbl">Score</span>
+  </div>
+  <div class="stat buff" id="buffTag">
+    <span class="val">Powered up</span>
+  </div>
+  <div class="stat bounce" id="bounceTag">
+    <span class="val">Bounce ready</span>
+  </div>
 </div>
+
+<div class="board-wrap">
+  <div id="boardInner">
+    <canvas id="game" width="320" height="180"></canvas>
+  </div>
 </div>
-<div style="display:flex; justify-content:flex-end; align-items:center; margin-top:10px;">
-<div style="font-size:13px; color:var(--text-secondary);">Score <span id="score" style="color:var(--text-primary); font-weight:500;">0</span> &middot; Wave <span id="wave" style="color:var(--text-primary); font-weight:500;">1</span><span id="buffTag" style="display:none; color:var(--text-accent); font-weight:500; margin-left:6px;">Powered up</span><span id="bounceTag" style="display:none; color:var(--text-accent); font-weight:500; margin-left:6px;">Bounce ready</span></div>
+
+<div class="controls-row">
+  <div class="hint">Arrows or WASD move. Space swings the sword. X casts magic. E toggles auto-cast. Z fires a wall-bouncing spell from wave 15.</div>
+  <div class="actions">
+    <div class="dpad-grid">
+      <div></div><button class="btn dpad" data-key="ArrowUp" type="button">↑</button><div></div>
+      <button class="btn dpad" data-key="ArrowLeft" type="button">←</button><div></div><button class="btn dpad" data-key="ArrowRight" type="button">→</button>
+      <div></div><button class="btn dpad" data-key="ArrowDown" type="button">↓</button><div></div>
+    </div>
+    <div class="atk-col">
+      <button class="btn" id="atkSword" type="button">Attack</button>
+      <button class="btn" id="atkMagic" type="button">Magic</button>
+      <button class="btn" id="autoBtn" type="button">Auto</button>
+      <button class="btn" id="atkBounce" type="button">Bounce</button>
+    </div>
+  </div>
 </div>
-<div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px; gap:10px; flex-wrap:wrap;">
-<div style="font-size:12px; color:var(--text-muted); max-width:220px;">Arrows or WASD move. Space swings the sword. X casts magic. E toggles auto-cast. Z fires a wall-bouncing spell from wave 15 in your last moved direction.</div>
-<div style="display:flex; gap:14px; align-items:center;">
-<div style="display:grid; grid-template-columns:repeat(3,30px); grid-template-rows:repeat(3,30px); gap:2px;">
-<div></div><button class="dpad" data-key="ArrowUp" style="padding:0;">↑</button><div></div>
-<button class="dpad" data-key="ArrowLeft" style="padding:0;">←</button><div></div><button class="dpad" data-key="ArrowRight" style="padding:0;">→</button>
-<div></div><button class="dpad" data-key="ArrowDown" style="padding:0;">↓</button><div></div>
+
+<div class="overlay show" id="titleOverlay">
+  <div class="overlay-card">
+    <h1>Apple &amp; Cherry</h1>
+    <p>Clear every wave to advance. New powers unlock as you go, a boss at wave 9, a wall-bouncing spell at wave 15, a castle at wave 20, and a colossal knight boss at wave 25.</p>
+    <button class="btn primary" id="startBtn" type="button">Start adventure</button>
+  </div>
 </div>
-<div style="display:flex; flex-direction:column; gap:4px;">
-<button id="atkSword" style="padding:6px 10px; font-size:12px;">Attack</button>
-<button id="atkMagic" style="padding:6px 10px; font-size:12px;">Magic</button>
-<button id="autoBtn" style="padding:6px 10px; font-size:12px;">Auto</button>
-<button id="atkBounce" style="padding:6px 10px; font-size:12px;">Bounce</button>
+
+<div class="overlay" id="overOverlay">
+  <div class="overlay-card">
+    <h2>Game over</h2>
+    <div class="stat-line" id="finalScore"></div>
+    <button class="btn primary" id="restartBtn" type="button">Try again</button>
+  </div>
 </div>
-</div>
-</div>
-</div>
+
 <script>
 var canvas=document.getElementById('game');
 var ctx=canvas.getContext('2d');
@@ -99,8 +216,8 @@ updateHud();
 }
 function startGame(){
 reset();state='playing';
-document.getElementById('titleOverlay').style.display='none';
-document.getElementById('overOverlay').style.display='none';
+document.getElementById('titleOverlay').classList.remove('show');
+document.getElementById('overOverlay').classList.remove('show');
 }
 function toggleAuto(){
 autoMagic=!autoMagic;
@@ -110,24 +227,14 @@ updateAutoBtn();
 function updateAutoBtn(){
 var b=document.getElementById('autoBtn');
 b.textContent=autoMagic?'Auto: On':'Auto';
-b.style.color=autoMagic?'var(--text-accent)':'';
-b.style.fontWeight=autoMagic?'600':'400';
+b.classList.toggle('on',autoMagic);
 }
 function updateHud(){
-var h=document.getElementById('heartsOverlay');
-h.innerHTML='';
-for(var i=0;i<party.maxHp;i++){
-var span=document.createElement('i');
-span.className='ti ti-heart';
-span.setAttribute('aria-hidden','true');
-span.style.fontSize='16px';
-span.style.color=i<party.hp?'var(--text-danger)':'var(--border-strong)';
-h.appendChild(span);
-}
+document.getElementById('hpVal').textContent=party.hp+'/'+party.maxHp;
 document.getElementById('score').textContent=score;
 document.getElementById('wave').textContent=wave;
-document.getElementById('buffTag').style.display=wave>=BUFF_WAVE?'inline':'none';
-document.getElementById('bounceTag').style.display=wave>=BOUNCE_WAVE?'inline':'none';
+document.getElementById('buffTag').classList.toggle('show',wave>=BUFF_WAVE);
+document.getElementById('bounceTag').classList.toggle('show',wave>=BOUNCE_WAVE);
 }
 function monstersByDistance(x,y,n){
 var list=monsters.filter(function(m){return !m.dead;});
@@ -417,8 +524,8 @@ updateHud();
 }
 function endGame(){
 state='over';
-document.getElementById('finalScore').textContent='Score '+score+' - reached wave '+wave;
-document.getElementById('overOverlay').style.display='flex';
+document.getElementById('finalScore').innerHTML='Score <b>'+score+'</b> · reached wave <b>'+wave+'</b>';
+document.getElementById('overOverlay').classList.add('show');
 }
 function drawHero(x,y,dir,hairColor,bodyColor,hurt){
 ctx.save();
@@ -663,4 +770,5 @@ reset();
 updateAutoBtn();
 requestAnimationFrame(loop);
 </script>
-</div><script async src="/.netlify/scripts/hud?variant=public" data-nf-variant="public" data-netlify-site-id="34017ee1-cf46-4a7c-960d-9f68418da6b7" data-app-host="app.netlify.com"></script>
+</body>
+</html>
