@@ -69,22 +69,31 @@
         <h2 id="watch-title">Watch us<br>play.</h2>
         <a class="channel-button" href="https://www.youtube.com/@FunTimesGuys1" target="_blank" rel="noopener noreferrer"><span class="play-icon" aria-hidden="true"></span>Visit Fun Times Guys</a>
       </div>
-      <div class="videos">
-        <a class="video" href="https://www.youtube.com/shorts/0jkIJ8IZ-gs" target="_blank" rel="noopener noreferrer" aria-label="Watch Giyu Tomioka Vs Megumi Fushiguro on YouTube">
-          <div class="video-media"><img src="https://i.ytimg.com/vi/0jkIJ8IZ-gs/hqdefault.jpg" alt="Giyu Tomioka Vs Megumi Fushiguro video preview" loading="lazy"></div>
-          <div class="video-copy"><div><span class="video-label">Short pick</span><h3>Giyu Tomioka Vs Megumi Fushiguro</h3></div><span class="play" aria-hidden="true"><span class="play-icon"></span></span></div>
-        </a>
-        <a class="video" href="https://www.youtube.com/watch?v=0e_SQQ8O7E4" target="_blank" rel="noopener noreferrer" aria-label="Watch Guess Who Jujutsu Kaisen on YouTube">
-          <div class="video-media"><img src="https://i.ytimg.com/vi/0e_SQQ8O7E4/hqdefault.jpg" alt="Guess Who Jujutsu Kaisen video preview" loading="lazy"></div>
-          <div class="video-copy"><div><span class="video-label">Full video pick</span><h3>Guess Who Jujutsu Kaisen</h3></div><span class="play" aria-hidden="true"><span class="play-icon"></span></span></div>
-        </a>
-      </div>
+      <div class="videos" id="videos" aria-live="polite"><div class="empty">Choosing today’s videos…</div></div>
     </section>
     <footer><span>Made for curious players</span><span>Choose boldly · Play freely</span></footer>
   </main>
   <script>
     const shelf = document.querySelector("#games");
     const count = document.querySelector("#count");
+    const videos = document.querySelector("#videos");
+    fetch("videos.json", { cache: "no-cache" })
+      .then((response) => { if (!response.ok) throw new Error(); return response.json(); })
+      .then((picks) => {
+        if (!picks.long?.id || !picks.short?.id) throw new Error();
+        videos.innerHTML = videoCard(picks.long, "Full video pick", "watch") + videoCard(picks.short, "Short pick", "shorts");
+      })
+      .catch(() => { videos.innerHTML = '<div class="error">Today’s videos could not be loaded. Please refresh and try again.</div>'; });
+    function videoCard(video, label, kind) {
+      const title = escapeHtml(video.title);
+      const id = encodeURIComponent(video.id);
+      const href = kind === "shorts" ? `https://www.youtube.com/shorts/${id}` : `https://www.youtube.com/watch?v=${id}`;
+      return `
+        <a class="video" href="${href}" target="_blank" rel="noopener noreferrer" aria-label="Watch ${title} on YouTube">
+          <div class="video-media"><img src="https://i.ytimg.com/vi/${id}/hqdefault.jpg" alt="${title} video preview" loading="lazy"></div>
+          <div class="video-copy"><div><span class="video-label">${label}</span><h3>${title}</h3></div><span class="play" aria-hidden="true"><span class="play-icon"></span></span></div>
+        </a>`;
+    }
     fetch("games.json", { cache: "no-cache" })
       .then((response) => { if (!response.ok) throw new Error(); return response.json(); })
       .then((games) => {
