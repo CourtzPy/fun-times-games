@@ -10,23 +10,18 @@
     "number": "02"
   },
   {
-    "title": "Carrot Farm",
-    "path": "carrot%20farm.html",
-    "number": "03"
-  },
-  {
     "title": "Monster Keep",
     "path": "monster-keep.html",
-    "number": "04"
+    "number": "03"
   },
   {
     "title": "Glimmer Deep",
     "path": "glimmer-deep.html",
-    "number": "05"
+    "number": "04"
   },
   {
-    "title": "Illegal Duels",
-    "path": "Illegal%20Duels%20%5BRELEASE%5D.html",
-    "number": "06"
+    "title": "Book Batches",
+    "path": "Book%20Batches.html",
+    "number": "05"
   }
 ]
