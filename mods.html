@@ -151,7 +151,7 @@
 
     function safeFile(file) {
       if (typeof file !== "string") return "";
-      const value = file.trim();
+      let value = file.trim();
       if (/^https:\/\//i.test(value)) {
         try {
           const url = new URL(value);
