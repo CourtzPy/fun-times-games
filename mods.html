@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Download One Block, a Minecraft Bedrock world. One grass block over the void.">
+  <title>Playroom — One Block</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bowlby+One+SC&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    :root { --ink:#25221d; --paper:#f1e9d6; --red:#c6503d; --lime:#bfcc77; --blue:#86b6b1; --clay:#dca26e; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; color:var(--ink); background:var(--paper); font-family:"DM Mono",monospace; }
+    body::before { content:""; position:fixed; inset:0; pointer-events:none; opacity:.22; background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.18'/%3E%3C/svg%3E"); z-index:5; }
+    main { width:min(1180px,calc(100% - 40px)); margin:auto; padding:28px 0 80px; }
+    nav { display:flex; justify-content:space-between; align-items:center; gap:20px; border-bottom:2px solid var(--ink); padding-bottom:14px; font-size:12px; letter-spacing:.14em; text-transform:uppercase; }
+    .nav-side { display:flex; align-items:center; gap:18px; }
+    .nav-link,.mark { color:inherit; font-weight:500; text-decoration:none; text-underline-offset:4px; }
+    .nav-link:hover,.nav-link:focus-visible,.mark:hover,.mark:focus-visible { color:var(--red); }
+    .mark { display:flex; align-items:center; gap:10px; }
+    .dot { width:13px; height:13px; background:var(--clay); border:2px solid var(--ink); border-radius:50%; }
+    header { display:grid; grid-template-columns:1.45fr .55fr; gap:36px; align-items:end; padding:70px 0 54px; }
+    h1 { font-family:"Bowlby One SC",sans-serif; font-size:clamp(56px,10.8vw,152px); font-weight:400; letter-spacing:-.055em; line-height:.77; margin:0; max-width:900px; }
+    header p { margin:0 0 7px; font-size:clamp(13px,1.2vw,16px); line-height:1.7; max-width:340px; }
+    .rule { display:flex; align-items:center; gap:17px; margin-bottom:22px; font-size:11px; text-transform:uppercase; letter-spacing:.12em; }
+    .rule::after { content:""; height:2px; background:var(--ink); flex:1; }
+    .mods { display:grid; gap:22px; }
+    .mod { --card:var(--clay); position:relative; padding:25px; color:var(--ink); background:var(--card); border:2px solid var(--ink); box-shadow:7px 7px 0 var(--ink); opacity:0; animation:arrive .55s cubic-bezier(.2,.8,.2,1) forwards; animation-delay:calc(var(--i) * 90ms); }
+    .mod:nth-child(even) { --card:var(--lime); }
+    .mod:nth-child(3n) { --card:var(--blue); }
+    .meta { display:flex; justify-content:space-between; gap:16px; font-size:11px; letter-spacing:.12em; text-transform:uppercase; }
+    .mod h2 { font-family:"Bowlby One SC",sans-serif; font-size:clamp(31px,4.2vw,62px); font-weight:400; line-height:.95; margin:28px 0 0; text-transform:uppercase; overflow-wrap:break-word; }
+    .summary { max-width:68ch; margin:16px 0 0; font-size:14px; line-height:1.7; }
+    .builds { list-style:none; margin:22px 0 0; padding:0; display:grid; gap:10px; }
+    .build { display:grid; grid-template-columns:1fr auto; gap:16px; align-items:center; padding:14px 14px 14px 16px; background:var(--paper); border:2px solid var(--ink); }
+    .kicker { display:block; font-size:11px; letter-spacing:.12em; text-transform:uppercase; }
+    .version { display:block; margin-top:4px; font-size:12px; }
+    .download { display:inline-flex; align-items:center; justify-content:center; min-height:46px; padding:0 16px; color:var(--paper); background:var(--ink); border:2px solid var(--ink); box-shadow:3px 3px 0 var(--red); font:inherit; font-size:11px; font-weight:500; letter-spacing:.1em; text-decoration:none; text-transform:uppercase; transition:transform .2s ease,box-shadow .2s ease; }
+    .download:hover,.download:focus-visible { transform:translate(-2px,-2px); box-shadow:6px 6px 0 var(--red); outline:none; }
+    .download[aria-disabled="true"] { color:var(--ink); background:transparent; box-shadow:none; pointer-events:none; }
+    .empty,.error { padding:54px 24px; border:2px dashed var(--ink); text-align:center; line-height:1.7; }
+    .guide { margin-top:76px; }
+    .guide h2 { font-family:"Bowlby One SC",sans-serif; font-size:clamp(39px,7vw,88px); font-weight:400; line-height:.86; letter-spacing:-.035em; margin:0 0 26px; text-transform:uppercase; }
+    .steps { display:grid; grid-template-columns:repeat(3,1fr); gap:22px; margin:0; padding:0; list-style:none; counter-reset:step; }
+    .steps li { min-height:180px; padding:22px; background:var(--paper); border:2px solid var(--ink); box-shadow:5px 5px 0 var(--ink); counter-increment:step; }
+    .steps li::before { content:counter(step, decimal-leading-zero); display:block; margin-bottom:18px; font-size:11px; letter-spacing:.14em; }
+    .steps strong { display:block; margin-bottom:8px; font-family:"Bowlby One SC",sans-serif; font-size:22px; font-weight:400; letter-spacing:.01em; text-transform:uppercase; }
+    .steps p { margin:0; font-size:13px; line-height:1.65; }
+    footer { display:flex; justify-content:space-between; gap:24px; margin-top:60px; padding-top:17px; border-top:2px solid var(--ink); font-size:10px; text-transform:uppercase; letter-spacing:.1em; }
+    footer a { color:inherit; }
+    @keyframes arrive { from { opacity:0; transform:translateY(22px) rotate(.7deg); } to { opacity:1; transform:none; } }
+    @media (max-width:720px) {
+      main { width:min(100% - 26px,1180px); padding-top:17px; }
+      nav { align-items:flex-start; }
+      .nav-side { flex-direction:column; align-items:flex-end; gap:7px; }
+      header { grid-template-columns:1fr; padding:52px 0 38px; }
+      h1 { font-size:clamp(52px,19vw,100px); }
+      header p { max-width:500px; }
+      .build { grid-template-columns:1fr; }
+      .steps { grid-template-columns:1fr; }
+      .guide { margin-top:62px; }
+    }
+    @media (prefers-reduced-motion:reduce) { .mod { animation:none; opacity:1; } .download { transition:none; } }
+  </style>
+</head>
+<body>
+  <main>
+    <nav>
+      <a class="mark" href="index.html"><span class="dot"></span>Playroom</a>
+      <span class="nav-side"><a class="nav-link" href="index.html">Games</a><a class="nav-link" href="https://www.youtube.com/@FunTimesGuys1" target="_blank" rel="noopener noreferrer">YouTube ↗</a><span id="count">Loading chest…</span></span>
+    </nav>
+    <header>
+      <h1>Grab<br>a world.</h1>
+      <p>One Block for Minecraft Bedrock. Download the world file and open it in Minecraft. The packs are already turned on.</p>
+    </header>
+    <div class="rule">In the chest</div>
+    <section class="mods" id="mods" aria-live="polite"><div class="empty">Opening the chest…</div></section>
+    <section class="guide" aria-labelledby="install-title">
+      <div class="rule">Install</div>
+      <h2 id="install-title">Three<br>steps.</h2>
+      <ol class="steps">
+        <li><strong>Download the world</strong><p>Save One Block.mcworld. You need Minecraft Bedrock 1.21.100 or newer.</p></li>
+        <li><strong>Open it in Minecraft</strong><p>Double-click the file on a computer, or open it with Minecraft on a phone or tablet. Bedrock imports it into your worlds.</p></li>
+        <li><strong>Play</strong><p>You spawn on one grass block over the void. Break it to roll the next result. Anything you build around it is normal.</p></li>
+      </ol>
+    </section>
+    <footer><a href="index.html">Back to the shelf</a><span>One block · One world · Bedrock</span></footer>
+  </main>
+  <script>
+    const chest = document.querySelector("#mods");
+    const count = document.querySelector("#count");
+
+    fetch("mods.json", { cache: "no-cache" })
+      .then((response) => { if (!response.ok) throw new Error(); return response.json(); })
+      .then((mods) => {
+        const list = Array.isArray(mods) ? mods.filter((mod) => mod && mod.title) : [];
+        count.textContent = `${list.length} download${list.length === 1 ? "" : "s"} in the chest`;
+        if (!list.length) {
+          chest.innerHTML = '<div class="empty"><p>The chest is empty.</p></div>';
+          return;
+        }
+        chest.innerHTML = list.map((mod, index) => renderMod(mod, index)).join("");
+      })
+      .catch(() => {
+        count.textContent = "Chest unavailable";
+        chest.innerHTML = '<div class="error">The mod chest could not be opened. Please refresh and try again.</div>';
+      });
+
+    function renderMod(mod, index) {
+      const title = escapeHtml(mod.title);
+      const summary = mod.summary ? `<p class="summary">${escapeHtml(mod.summary)}</p>` : "";
+      const downloads = Array.isArray(mod.downloads) ? mod.downloads : [];
+      const builds = downloads.map((build) => renderBuild(build, mod.title)).filter(Boolean);
+      const worlds = downloads.filter((build) => String(build && build.file || "").toLowerCase().endsWith(".mcworld"));
+      const buildLabel = worlds.length === downloads.length && worlds.length
+        ? (worlds.length === 1 ? "World file" : `${worlds.length} world files`)
+        : `${builds.length} build${builds.length === 1 ? "" : "s"}`;
+      const body = builds.length
+        ? `<ul class="builds">${builds.join("")}</ul>`
+        : `<ul class="builds"><li class="build"><span class="kicker">No file linked yet</span><span class="download" aria-disabled="true">Soon</span></li></ul>`;
+      return `
+        <article class="mod" id="${slug(mod.title)}" style="--i:${index}">
+          <div class="meta"><span>No. ${String(index + 1).padStart(2, "0")}</span><span>${buildLabel}</span></div>
+          <h2>${title}</h2>
+          ${summary}
+          ${body}
+        </article>`;
+    }
+
+    function renderBuild(build, title) {
+      if (!build) return "";
+      const href = safeFile(build.file);
+      const loader = escapeHtml(build.loader || "Any loader");
+      const minecraft = escapeHtml(build.minecraft || "Any");
+      const details = [build.version ? `v${build.version}` : "", build.size || ""].filter(Boolean).join(" · ");
+      const label = escapeHtml(`Download ${title} for ${build.loader || "any loader"}, Minecraft ${build.minecraft || "any version"}`);
+      const button = href.toLowerCase().includes(".mcworld") ? "Download world" : "Download";
+      const action = href
+        ? `<a class="download" href="${escapeHtml(href)}" download="${escapeHtml(fileName(href))}" aria-label="${label}" ${href.startsWith("https://") ? 'target="_blank" rel="noopener noreferrer"' : ""}>${button}</a>`
+        : `<span class="download" aria-disabled="true">No file</span>`;
+      return `
+        <li class="build">
+          <div>
+            <span class="kicker">${loader} · Minecraft ${minecraft}</span>
+            <span class="version">${escapeHtml(details || "Ready to download")}</span>
+          </div>
+          ${action}
+        </li>`;
+    }
+
+    function safeFile(file) {
+      if (typeof file !== "string") return "";
+      const value = file.trim();
+      if (/^https:\/\//i.test(value)) {
+        try {
+          const url = new URL(value);
+          return url.protocol === "https:" ? url.href : "";
+        } catch { return ""; }
+      }
+      if (!value.startsWith("/") || value.includes("..")) return "";
+      const lower = value.toLowerCase();
+      const jar = lower.endsWith(".jar") && value.startsWith("/mods/files/");
+      const world = lower.endsWith(".mcworld");
+      if (!jar && !world) return "";
+      return encodeURI(value);
+    }
+
+    function fileName(href) {
+      try {
+        const path = href.startsWith("https://") ? new URL(href).pathname : href;
+        return decodeURIComponent(path.split("/").pop() || "mod.jar");
+      } catch { return "mod.jar"; }
+    }
+
+    function slug(title) {
+      return String(title).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "mod";
+    }
+
+    function escapeHtml(value) {
+      const node = document.createElement("span");
+      node.textContent = value == null ? "" : String(value);
+      return node.innerHTML;
+    }
+  </script>
+</body>
+</html>

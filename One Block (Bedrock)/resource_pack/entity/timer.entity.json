@@ -1,0 +1,12 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "oneblock:timer",
+      "materials": { "default": "entity_alphatest" },
+      "geometry": { "default": "geometry.oneblock_empty" },
+      "textures": { "default": "textures/entity/steve" },
+      "render_controllers": ["controller.render.oneblock_timer"]
+    }
+  }
+}

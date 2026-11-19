@@ -16,8 +16,8 @@
     main { width:min(1180px,calc(100% - 40px)); margin:auto; padding:28px 0 80px; }
     nav { display:flex; justify-content:space-between; align-items:center; gap:20px; border-bottom:2px solid var(--ink); padding-bottom:14px; font-size:12px; letter-spacing:.14em; text-transform:uppercase; }
     .nav-side { display:flex; align-items:center; gap:18px; }
-    .youtube-link { color:inherit; font-weight:500; text-underline-offset:4px; }
-    .youtube-link:hover,.youtube-link:focus-visible { color:var(--red); }
+    .youtube-link,.nav-link { color:inherit; font-weight:500; text-underline-offset:4px; }
+    .youtube-link:hover,.youtube-link:focus-visible,.nav-link:hover,.nav-link:focus-visible { color:var(--red); }
     .mark { display:flex; align-items:center; gap:10px; font-weight:500; }
     .dot { width:13px; height:13px; background:var(--red); border:2px solid var(--ink); border-radius:50%; }
     header { display:grid; grid-template-columns:1.45fr .55fr; gap:36px; align-items:end; padding:70px 0 54px; }
@@ -35,9 +35,15 @@
     .arrow { position:absolute; right:25px; bottom:21px; width:54px; height:54px; border:2px solid var(--ink); border-radius:50%; display:grid; place-items:center; font-size:27px; transition:transform .2s ease; }
     .game:hover .arrow { transform:rotate(-35deg); }
     .empty,.error { grid-column:1/-1; padding:54px 24px; border:2px dashed var(--ink); text-align:center; line-height:1.7; }
-    .watch { margin-top:76px; }
+    .watch,.chest { margin-top:76px; }
+    .mod-list { display:grid; gap:14px; }
+    .mod-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:16px; align-items:center; padding:18px 20px; color:var(--ink); background:#dca26e; border:2px solid var(--ink); box-shadow:5px 5px 0 var(--ink); text-decoration:none; }
+    .mod-row:nth-child(even) { background:var(--lime); }
+    .mod-kicker { display:block; margin-bottom:6px; font-size:11px; letter-spacing:.12em; text-transform:uppercase; }
+    .mod-row strong { display:block; font-family:"Bowlby One SC",sans-serif; font-size:clamp(26px,3vw,40px); font-weight:400; line-height:.95; text-transform:uppercase; overflow-wrap:break-word; }
+    .mod-go { font-size:11px; font-weight:500; letter-spacing:.1em; text-transform:uppercase; }
     .watch-head { display:grid; grid-template-columns:1fr auto; gap:28px; align-items:end; margin:0 0 26px; }
-    .watch h2 { font-family:"Bowlby One SC",sans-serif; font-size:clamp(39px,7vw,88px); font-weight:400; line-height:.86; letter-spacing:-.035em; margin:0; text-transform:uppercase; }
+    .watch h2,.chest h2 { font-family:"Bowlby One SC",sans-serif; font-size:clamp(39px,7vw,88px); font-weight:400; line-height:.86; letter-spacing:-.035em; margin:0; text-transform:uppercase; }
     .channel-button { display:inline-flex; align-items:center; gap:12px; min-height:49px; padding:0 17px; color:var(--paper); background:var(--red); border:2px solid var(--ink); box-shadow:4px 4px 0 var(--ink); font-size:11px; font-weight:500; letter-spacing:.1em; text-decoration:none; text-transform:uppercase; transition:transform .2s ease,box-shadow .2s ease; }
     .channel-button:hover,.channel-button:focus-visible { transform:translate(-2px,-2px); box-shadow:7px 7px 0 var(--ink); outline:none; }
     .play-icon { width:0; height:0; border-top:6px solid transparent; border-bottom:6px solid transparent; border-left:10px solid currentColor; }
@@ -53,16 +59,24 @@
     .play { flex:0 0 auto; width:44px; height:44px; display:grid; place-items:center; color:var(--ink); background:var(--paper); border-radius:50%; }
     footer { display:flex; justify-content:space-between; gap:24px; margin-top:60px; padding-top:17px; border-top:2px solid var(--ink); font-size:10px; text-transform:uppercase; letter-spacing:.1em; }
     @keyframes arrive { from { opacity:0; transform:translateY(22px) rotate(.7deg); } to { opacity:1; transform:none; } }
-    @media (max-width:720px) { main{width:min(100% - 26px,1180px);padding-top:17px} nav{align-items:flex-start}.nav-side{flex-direction:column;align-items:flex-end;gap:7px}.youtube-link{font-size:10px} header{grid-template-columns:1fr;padding:52px 0 38px} h1{font-size:clamp(52px,19vw,100px)} header p{max-width:500px}.game,.game:nth-child(even),.game:nth-child(3n){grid-column:1/-1;min-height:240px}.game h2{margin-top:55px;max-width:90%}.watch{margin-top:62px}.watch-head{grid-template-columns:1fr;align-items:start}.channel-button{justify-self:start}.videos{grid-template-columns:1fr}.video-copy{padding:15px 16px 17px} }
+    @media (max-width:720px) { main{width:min(100% - 26px,1180px);padding-top:17px} nav{align-items:flex-start}.nav-side{flex-direction:column;align-items:flex-end;gap:7px}.youtube-link,.nav-link{font-size:10px} header{grid-template-columns:1fr;padding:52px 0 38px} h1{font-size:clamp(52px,19vw,100px)} header p{max-width:500px}.game,.game:nth-child(even),.game:nth-child(3n){grid-column:1/-1;min-height:240px}.game h2{margin-top:55px;max-width:90%}.watch,.chest{margin-top:62px}.watch-head{grid-template-columns:1fr;align-items:start}.channel-button{justify-self:start}.videos{grid-template-columns:1fr}.video-copy{padding:15px 16px 17px}.mod-row{grid-template-columns:1fr;align-items:start} }
     @media (prefers-reduced-motion:reduce) { .game { animation:none; opacity:1; transition:none; } }
   </style>
 </head>
 <body>
   <main>
-    <nav><span class="mark"><span class="dot"></span>Playroom</span><span class="nav-side"><a class="youtube-link" href="https://www.youtube.com/@FunTimesGuys1" target="_blank" rel="noopener noreferrer">YouTube ↗</a><span id="count">Loading shelf…</span></span></nav>
+    <nav><span class="mark"><span class="dot"></span>Playroom</span><span class="nav-side"><a class="nav-link" href="mods.html">Mods</a><a class="youtube-link" href="https://www.youtube.com/@FunTimesGuys1" target="_blank" rel="noopener noreferrer">YouTube ↗</a><span id="count">Loading shelf…</span></span></nav>
     <header><h1>Pick<br>a game.</h1><p>Small worlds, big adventures. Every game lives right here in your browser—choose one and jump in.</p></header>
     <div class="rule">Game shelf</div>
     <section class="games" id="games" aria-live="polite"><div class="empty">Opening the game cabinet…</div></section>
+    <section class="chest" aria-labelledby="chest-title">
+      <div class="rule">Mod chest</div>
+      <div class="watch-head">
+        <h2 id="chest-title">Minecraft<br>mods.</h2>
+        <a class="channel-button" href="mods.html">Browse the chest</a>
+      </div>
+      <div class="mod-list" id="mod-preview" aria-live="polite"><div class="empty">Checking the chest…</div></div>
+    </section>
     <section class="watch" aria-labelledby="watch-title">
       <div class="rule">From the channel</div>
       <div class="watch-head">
@@ -77,6 +91,27 @@
     const shelf = document.querySelector("#games");
     const count = document.querySelector("#count");
     const videos = document.querySelector("#videos");
+    const modPreview = document.querySelector("#mod-preview");
+    fetch("mods.json", { cache: "no-cache" })
+      .then((response) => { if (!response.ok) throw new Error(); return response.json(); })
+      .then((mods) => {
+        const list = Array.isArray(mods) ? mods.filter((mod) => mod && mod.title) : [];
+        if (!list.length) {
+          modPreview.innerHTML = '<div class="empty">The chest is ready. The first jar will show up here.</div>';
+          return;
+        }
+        modPreview.innerHTML = list.slice(0, 4).map((mod) => {
+          const title = escapeHtml(mod.title);
+          const downloads = Array.isArray(mod.downloads) ? mod.downloads : [];
+          const first = downloads[0] || {};
+          const loader = escapeHtml(first.loader || "Mod");
+          const minecraft = first.minecraft ? ` · Minecraft ${escapeHtml(first.minecraft)}` : "";
+          const extra = downloads.length > 1 ? ` · ${downloads.length} builds` : "";
+          return `<a class="mod-row" href="mods.html#${slug(mod.title)}"><span><span class="mod-kicker">${loader}${minecraft}${extra}</span><strong>${title}</strong></span><span class="mod-go">Open ↗</span></a>`;
+        }).join("");
+      })
+      .catch(() => { modPreview.innerHTML = '<div class="error">The mod chest could not be opened. Please refresh and try again.</div>'; });
+    function slug(title) { return String(title).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "mod"; }
     fetch("videos.json", { cache: "no-cache" })
       .then((response) => { if (!response.ok) throw new Error(); return response.json(); })
       .then((picks) => {

@@ -4,3 +4,27 @@
 [dev]
   framework = "#static"
   publish = "."
+
+# Pretty URL for the mod chest. The file stays mods.html so relative links stay simple.
+[[redirects]]
+from = "/mods"
+to = "/mods.html"
+status = 301
+
+# Version each jar in the filename (my-mod-1.2.0.jar). A week of caching is safe
+# because a new version is a new file, and the old link keeps working.
+[[headers]]
+for = "/mods/files/*"
+[headers.values]
+  Content-Type = "application/java-archive"
+  Content-Disposition = "attachment"
+  Cache-Control = "public, max-age=604800"
+  X-Content-Type-Options = "nosniff"
+
+[[headers]]
+for = "/One Block (Bedrock)/*.mcworld"
+[headers.values]
+  Content-Type = "application/octet-stream"
+  Content-Disposition = "attachment"
+  Cache-Control = "public, max-age=3600"
+  X-Content-Type-Options = "nosniff"

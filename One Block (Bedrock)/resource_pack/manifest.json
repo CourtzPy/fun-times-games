@@ -1,0 +1,18 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "One Block",
+    "description": "One Block. One grass block over the void.",
+    "uuid": "3924bd1f-3ee6-430e-a7f2-e3e9dacaa002",
+    "version": [1, 1, 0],
+    "min_engine_version": [1, 21, 100]
+  },
+  "modules": [
+    {
+      "description": "One Block resources",
+      "type": "resources",
+      "uuid": "31a62d94-c545-4bb3-8d98-892e3ac3094d",
+      "version": [1, 1, 0]
+    }
+  ]
+}
