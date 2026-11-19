@@ -158,9 +158,12 @@
           return url.protocol === "https:" ? url.href : "";
         } catch { return ""; }
       }
-      if (!value.startsWith("/") || value.includes("..")) return "";
+      // Keep the link relative. The site is published under /fun-times-games/, so a
+      // leading slash asks GitHub Pages for a file at the domain root and the download fails.
+      value = value.replace(/^\/+/, "");
+      if (!value || value.startsWith("/") || value.includes("..") || value.includes("\\") || value.includes("://")) return "";
       const lower = value.toLowerCase();
-      const jar = lower.endsWith(".jar") && value.startsWith("/mods/files/");
+      const jar = lower.endsWith(".jar") && value.startsWith("mods/files/");
       const world = lower.endsWith(".mcworld");
       if (!jar && !world) return "";
       return encodeURI(value);
