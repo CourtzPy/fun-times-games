@@ -24,7 +24,15 @@ for = "/mods/files/*"
 [[headers]]
 for = "/One Block (Bedrock)/*.mcworld"
 [headers.values]
-  Content-Type = "application/octet-stream"
-  Content-Disposition = "attachment"
-  Cache-Control = "public, max-age=3600"
-  X-Content-Type-Options = "nosniff"
+ Content-Type = "application/octet-stream"
+ Content-Disposition = "attachment"
+ Cache-Control = "public, max-age=3600"
+ X-Content-Type-Options = "nosniff"
+
+[[headers]]
+for = "/Most Tools Z/*.mcaddon"
+[headers.values]
+ Content-Type = "application/octet-stream"
+ Content-Disposition = "attachment"
+ Cache-Control = "public, max-age=3600"
+ X-Content-Type-Options = "nosniff"

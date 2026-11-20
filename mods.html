@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Download One Block, a Minecraft Bedrock world. One grass block over the void.">
-  <title>Playroom — One Block</title>
+  <meta name="description" content="Download Minecraft Bedrock worlds and addons from the Playroom mod chest, then open them in Minecraft.">
+  <title>Playroom — Mod chest</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bowlby+One+SC&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
@@ -71,8 +71,8 @@
       <span class="nav-side"><a class="nav-link" href="index.html">Games</a><a class="nav-link" href="https://www.youtube.com/@FunTimesGuys1" target="_blank" rel="noopener noreferrer">YouTube ↗</a><span id="count">Loading chest…</span></span>
     </nav>
     <header>
-      <h1>Grab<br>a world.</h1>
-      <p>One Block for Minecraft Bedrock. Download the world file and open it in Minecraft. The packs are already turned on.</p>
+      <h1>Grab<br>a pack.</h1>
+      <p>Minecraft Bedrock worlds and addons. Download the file, then open it in Minecraft.</p>
     </header>
     <div class="rule">In the chest</div>
     <section class="mods" id="mods" aria-live="polite"><div class="empty">Opening the chest…</div></section>
@@ -80,12 +80,12 @@
       <div class="rule">Install</div>
       <h2 id="install-title">Three<br>steps.</h2>
       <ol class="steps">
-        <li><strong>Download the world</strong><p>Save One Block.mcworld. You need Minecraft Bedrock 1.21.100 or newer.</p></li>
-        <li><strong>Open it in Minecraft</strong><p>Double-click the file on a computer, or open it with Minecraft on a phone or tablet. Bedrock imports it into your worlds.</p></li>
-        <li><strong>Play</strong><p>You spawn on one grass block over the void. Break it to roll the next result. Anything you build around it is normal.</p></li>
+        <li><strong>Download the file</strong><p>Save the world or the addon. You need Minecraft Bedrock 1.21.100 or newer.</p></li>
+        <li><strong>Open it in Minecraft</strong><p>On a phone or tablet, choose Open in Minecraft. On a computer, double-click the file. A world is added to your worlds. An addon is added to your packs.</p></li>
+        <li><strong>Play</strong><p>One Block starts you on a grass block over the void. For Most Tools Z, turn on both Most Tools Z packs in the world settings, then take the gear from the Equipment tab.</p></li>
       </ol>
     </section>
-    <footer><a href="index.html">Back to the shelf</a><span>One block · One world · Bedrock</span></footer>
+    <footer><a href="index.html">Back to the shelf</a><span>Worlds and addons · Bedrock</span></footer>
   </main>
   <script>
     const chest = document.querySelector("#mods");
@@ -112,10 +112,12 @@
       const summary = mod.summary ? `<p class="summary">${escapeHtml(mod.summary)}</p>` : "";
       const downloads = Array.isArray(mod.downloads) ? mod.downloads : [];
       const builds = downloads.map((build) => renderBuild(build, mod.title)).filter(Boolean);
-      const worlds = downloads.filter((build) => String(build && build.file || "").toLowerCase().endsWith(".mcworld"));
-      const buildLabel = worlds.length === downloads.length && worlds.length
-        ? (worlds.length === 1 ? "World file" : `${worlds.length} world files`)
-        : `${builds.length} build${builds.length === 1 ? "" : "s"}`;
+      const kinds = downloads.map((build) => fileKind(build && build.file));
+      const buildLabel = kinds.length && kinds.every((kind) => kind === "world")
+        ? (kinds.length === 1 ? "World file" : `${kinds.length} world files`)
+        : kinds.length && kinds.every((kind) => kind === "addon")
+          ? (kinds.length === 1 ? "Addon" : `${kinds.length} addons`)
+          : `${builds.length} build${builds.length === 1 ? "" : "s"}`;
       const body = builds.length
         ? `<ul class="builds">${builds.join("")}</ul>`
         : `<ul class="builds"><li class="build"><span class="kicker">No file linked yet</span><span class="download" aria-disabled="true">Soon</span></li></ul>`;
@@ -134,8 +136,11 @@
       const loader = escapeHtml(build.loader || "Any loader");
       const minecraft = escapeHtml(build.minecraft || "Any");
       const details = [build.version ? `v${build.version}` : "", build.size || ""].filter(Boolean).join(" · ");
-      const label = escapeHtml(`Download ${title} for ${build.loader || "any loader"}, Minecraft ${build.minecraft || "any version"}`);
-      const button = href.toLowerCase().includes(".mcworld") ? "Download world" : "Download";
+      const addon = href.toLowerCase().includes(".mcaddon");
+      const label = escapeHtml(addon
+        ? `Open ${title} in Minecraft`
+        : `Download ${title} for ${build.loader || "any loader"}, Minecraft ${build.minecraft || "any version"}`);
+      const button = href.toLowerCase().includes(".mcworld") ? "Download world" : addon ? "Open in Minecraft" : "Download";
       const action = href
         ? `<a class="download" href="${escapeHtml(href)}" download="${escapeHtml(fileName(href))}" aria-label="${label}" ${href.startsWith("https://") ? 'target="_blank" rel="noopener noreferrer"' : ""}>${button}</a>`
         : `<span class="download" aria-disabled="true">No file</span>`;
@@ -165,8 +170,16 @@
       const lower = value.toLowerCase();
       const jar = lower.endsWith(".jar") && value.startsWith("mods/files/");
       const world = lower.endsWith(".mcworld");
-      if (!jar && !world) return "";
+      const addon = lower.endsWith(".mcaddon");
+      if (!jar && !world && !addon) return "";
       return encodeURI(value);
+    }
+
+    function fileKind(file) {
+      const lower = String(file || "").toLowerCase();
+      if (lower.endsWith(".mcworld")) return "world";
+      if (lower.endsWith(".mcaddon")) return "addon";
+      return "file";
     }
 
     function fileName(href) {

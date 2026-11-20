@@ -11,5 +11,18 @@
         "file": "One Block (Bedrock)/One Block.mcworld"
       }
     ]
+  },
+  {
+    "title": "Most Tools Z",
+    "summary": "A Bedrock addon with Speedster, Blaze, and Ghostly armour, plus the Lightning Sword, Lifeleech Dagger, Homing Bow, Companion Whistle, Friend Axe, and Energy Gun. Open the file in Minecraft, then turn on both Most Tools Z packs for your world.",
+    "downloads": [
+      {
+        "minecraft": "1.21.100",
+        "loader": "Bedrock",
+        "version": "1.14.0",
+        "size": "60 KB",
+        "file": "Most Tools Z/Most Tools Z.mcaddon"
+      }
+    ]
   }
 ]
